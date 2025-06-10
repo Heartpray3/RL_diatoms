@@ -1,0 +1,8 @@
+# Ignore everything
+*
+
+# Do not ignore files in the current directory
+!*
+
+# Ignore all subdirectories
+*/
