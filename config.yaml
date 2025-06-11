@@ -1,0 +1,10 @@
+output_directory: "./"
+Nblobs: 14
+phase_shift: 2.0
+Nrods: 2
+an: "0.0"
+bn: "1.0"
+nmodes: 1
+dt: 0.0125
+Nstep: 80
+freq: 10
