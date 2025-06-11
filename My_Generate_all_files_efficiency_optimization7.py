@@ -84,19 +84,19 @@ def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep
     suffix_Nrods = str(Nrods) +  '_rods'
     filename = filename1 + suffix_Nrods
     
-    suffix_phase_shift = '_phase_shift_' +  str(phase_shift).replace('.', '_') + 'pi'
+    # suffix_phase_shift = '_phase_shift_' +  str(phase_shift).replace('.', '_') + 'pi'
 
-    suffix_fourier = '_A_'
-    for i in range(nmodes):
-        Aint, Afloat = str(an[i]).split('.')
-        suffix_fourier += f'{Aint}_{Afloat}_'
-    suffix_fourier += 'B_'
-    for i in range(nmodes):
-        Bint, Bfloat = str(bn[i]).split('.')
-        suffix_fourier += f'{Bint}_{Bfloat}_'
-    suffix_fourier += f'n_{nmodes}'
+    # suffix_fourier = '_A_'
+    # for i in range(nmodes):
+    #     Aint, Afloat = str(an[i]).split('.')
+    #     suffix_fourier += f'{Aint}_{Afloat}_'
+    # suffix_fourier += 'B_'
+    # for i in range(nmodes):
+    #     Bint, Bfloat = str(bn[i]).split('.')
+    #     suffix_fourier += f'{Bint}_{Bfloat}_'
+    # suffix_fourier += f'n_{nmodes}'
     
-    foldername = filename + suffix_phase_shift + suffix_fourier
+    foldername = filename #+ suffix_phase_shift #+ suffix_fourier
     
     rod_folder = f'{Nrods}_Rods'
     blob_folder = f'{Nblobs}_Blobs'
@@ -257,8 +257,8 @@ def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep
     C[39] = Line_const
     
     
-    os.chdir(output_directory+output_folder)
-    filename_input_local = filename_input +  '_' +  suffix_Nrods + suffix_phase_shift +  '.dat'
+    os.chdir(os.path.join(output_directory, output_folder))
+    filename_input_local = filename_input +  '_' +  suffix_Nrods +  '.dat'
     fid = open(filename_input_local, 'w')           
     fid.writelines(C) 
     fid.close()
