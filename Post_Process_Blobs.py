@@ -11,7 +11,7 @@ import matplotlib.pylab as plt
 import cv2
 import matplotlib.cm as cm
 from matplotlib.collections import LineCollection
-from utils import load_config, abs_path
+from utils import load_config, abs_path, get_sim_folder
 
 #%% Input 
 
@@ -22,18 +22,18 @@ plot_blobs_all_step = 0
 save_movie_blobs = 1
 save_movie_without_blobs = 0
 
-config = load_config()
-Nblobs_vec = [config.Nblobs]
-Nrods_vec = [config.Nrods] #Do not vary with a np.arrange
-phase_shift_vec = [config.phase_shift]
+config_file = load_config()
+Nblobs_vec = [config_file.Nblobs]
+Nrods_vec = [config_file.Nrods] #Do not vary with a np.arrange
+phase_shift_vec = [config_file.phase_shift]
 
 
 root_name = 'bacillaria_'
 # Path = '/home/ely/Documents/internship/RigidMultiblobsWall-master-JLD/multi_bodies/examples/Optim/'
-Path = abs_path(config.output_directory)
+working_dir = abs_path(config_file.output_directory)
 
-Nstep = 80
-dt = 0.0025
+# Nstep = 80
+# dt = 0.0025
 
 #%% Function 
 
@@ -82,7 +82,7 @@ L = Nrods_vec[0]*2*a
 
 #####Vertex file#####
 
-os.chdir(Path)
+os.chdir(working_dir)
          
 for nb in range(Nb):
     Nblobs = Nblobs_vec[nb]
@@ -110,33 +110,33 @@ for nb in range(Nb):
     
     
     N_phase_shift_vec = np.size(phase_shift_vec)
-    position_com_all_ps = np.zeros((N_phase_shift_vec,Nstep,3))
+    position_com_all_ps = np.zeros((N_phase_shift_vec,config_file.Nstep,3))
     ind1 = 0
 
 # ######## Vitesse #########
-
-    velocity = np.zeros((Nb,Nps,40))
-    Nrods = Nrods_vec[0]
-    
-    for h in range(Nps):
-        phase_shift = phase_shift_vec[h]
-        psint,psfloat = str(phase_shift).split(".")
-        psint = psint[0]
-        psfloat = psfloat[0]
-        os.chdir(Path+str(filename1)+str(Nrods)+'_rods_phase_shift_'+str(psint)+'_'+str(psfloat)+'pi')
-        
-        for i in range(40,80,1):
-            
-            f  = open(str(filename1)+str(Nrods)+'_rods_phase_shift_'+str(psint)+'_'+str(psfloat)+'pi.Velocity_COM_step_'+str(i),'r')
-            data = f.read()
-            data = data.split()
-            data = np.asarray(data)
-            data = data.astype(float)
-            
-            data[0] = data[0] * 40 * dt / L 
-            data[2] = data[2] * 40 * dt / L 
-
-            velocity[nb,h,i-40] = np.sqrt(data[0]**2+data[2]**2)
+#
+#     velocity = np.zeros((Nb,Nps,40))
+#     Nrods = Nrods_vec[0]
+#
+#     for h in range(Nps):
+#         phase_shift = phase_shift_vec[h]
+#         psint,psfloat = str(phase_shift).split(".")
+#         psint = psint[0]
+#         psfloat = psfloat[0]
+#         os.chdir(Path+str(filename1)+str(Nrods)+'_rods')
+#
+#         for i in range(40,80,1):
+#
+#             f  = open(str(filename1)+str(Nrods)+'_rods_phase_shift_'+str(psint)+'_'+str(psfloat)+'pi.Velocity_COM_step_'+str(i),'r')
+#             data = f.read()
+#             data = data.split()
+#             data = np.asarray(data)
+#             data = data.astype(float)
+#
+#             data[0] = data[0] * 40 * config_file.dt / L
+#             data[2] = data[2] * 40 * config_file.dt / L
+#
+#             velocity[nb,h,i-40] = np.sqrt(data[0]**2+data[2]**2)
             
 
 #####Boucle pour plusieurs cas#####
@@ -155,8 +155,11 @@ for nb in range(Nb):
             psint,psfloat = str(phase_shift).split(".")
             psint = psint[0]
             psfloat = psfloat[0]
-            os.chdir(Path+str(filename1)+str(Nrods)+'_rods_phase_shift_'+str(psint)+'_'+str(psfloat)+'pi')
-            f  = open('run_'+str(filename1)+str(Nrods)+'_rods_phase_shift_'+str(psint)+'_'+str(psfloat)+'pi.'+str(filename1)+str(Nrods)+'_rods.config','r')
+
+            sim_dir = get_sim_folder(str(filename1) + str(Nrods) + '_rods', Nrods, Nblobs)
+            os.chdir(os.path.join(working_dir, sim_dir))
+
+            f  = open('run_'+str(filename1)+str(Nrods)+'_rods.'+str(filename1)+str(Nrods)+'_rods.config','r')
             data2 = f.read()
             data2 = data2.split()
                     
@@ -168,10 +171,10 @@ for nb in range(Nb):
             config = config.astype(float)
             config = np.reshape(config,(-1,7))
                     
-            position_com = np.zeros((Nstep,3))
-            pos_all_blobs = np.zeros((blobs*Nrods,Nstep,3))
+            position_com = np.zeros((config_file.Nstep,3))
+            pos_all_blobs = np.zeros((blobs*Nrods,config_file.Nstep,3))
             
-            for i in range(Nstep): #loop over time
+            for i in range(config_file.Nstep): #loop over time
                     
                 #####Center of mass##### 
                         
@@ -230,7 +233,7 @@ for nb in range(Nb):
             theta = np.linspace( 0 , 2 * np.pi , 100)
             
             if plot_blobs_all_step == 1 : 
-                for i in range(Nstep): #loop over time
+                for i in range(config_file.Nstep): #loop over time
             
                     plt.figure('N = ' + str(Nrods_vec[g]) + ', phi = ' + str(N_lambda_vec[h]) + ' et Step = ' + str(i),figsize=(12.8,9.6))
                     plt.xlabel('x/L')
@@ -249,9 +252,9 @@ for nb in range(Nb):
                 
         if save_movie_blobs == 1 :
             
-            norm = plt.Normalize(velocity[g,h,:].min(), velocity[g,h,:].max())
+            # norm = plt.Normalize(velocity[g,h,:].min(), velocity[g,h,:].max())
             
-            for i in range(Nstep): #loop over time
+            for i in range(config_file.Nstep): #loop over time
                 plt.figure('Test pour N = ' + str(Nrods_vec[g]) + ' et N_lambda = ' + str(N_lambda_vec[h]) + ' Step = ' + str(i),figsize=(12.8,9.6))
                 plt.xlabel('x/L')
                 plt.ylabel('z/L')
@@ -290,25 +293,25 @@ for nb in range(Nb):
             zmin2 = -maxi
             zmax2 = maxi
             
-            norm = plt.Normalize(velocity[g,h,:].min(), velocity[g,h,:].max())
+            # norm = plt.Normalize(velocity[g,h,:].min(), velocity[g,h,:].max())
             
-            for i in range(Nstep): #loop over time
-                plt.figure('N = ' + str(Nrods_vec[g]) + ' et N_lambda = ' + str(N_lambda_vec[h]) + ' Step = ' + str(i),figsize=(12.8,9.6))
-                plt.xlabel('x/L')
-                plt.ylabel('z/L')
-                plt.xlim(((xmin2-3*a)/L,(xmax2+3*a)/L))
-                plt.ylim(((zmin2-3*a)/L,(zmax2+3*a)/L))
-                points = np.array([position_com[0:i,0]/L, position_com[0:i,2]/L]).T.reshape(-1, 1, 2)
-                segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                # Create a continuous norm to map from data points to colors
-                lc = LineCollection(segments, cmap='plasma', norm=norm)
-                lc.set_array(velocity[g,h,:])
-                lc.set_linewidth(2)
-                plt.gca().add_collection(lc)
-                plt.colorbar(cm.ScalarMappable(cmap = 'plasma', norm=norm))
-                plt.savefig('Trajectory COM for N = ' + str(Nrods_vec[g]) + ' et N_lambda = ' + str(N_lambda_vec[h]) + ' Step = ' + str(i) +'.jpg',format='jpg')
-                plt.close()
-   
+            # for i in range(config_file.Nstep): #loop over time
+            #     plt.figure('N = ' + str(Nrods_vec[g]) + ' et N_lambda = ' + str(N_lambda_vec[h]) + ' Step = ' + str(i),figsize=(12.8,9.6))
+            #     plt.xlabel('x/L')
+            #     plt.ylabel('z/L')
+            #     plt.xlim(((xmin2-3*a)/L,(xmax2+3*a)/L))
+            #     plt.ylim(((zmin2-3*a)/L,(zmax2+3*a)/L))
+            #     points = np.array([position_com[0:i,0]/L, position_com[0:i,2]/L]).T.reshape(-1, 1, 2)
+            #     segments = np.concatenate([points[:-1], points[1:]], axis=1)
+            #     # Create a continuous norm to map from data points to colors
+            #     lc = LineCollection(segments, cmap='plasma', norm=norm)
+            #     lc.set_array(velocity[g,h,:])
+            #     lc.set_linewidth(2)
+            #     plt.gca().add_collection(lc)
+            #     plt.colorbar(cm.ScalarMappable(cmap = 'plasma', norm=norm))
+            #     plt.savefig('Trajectory COM for N = ' + str(Nrods_vec[g]) + ' et N_lambda = ' + str(N_lambda_vec[h]) + ' Step = ' + str(i) +'.jpg',format='jpg')
+            #     plt.close()
+            #
 
         
         
