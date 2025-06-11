@@ -11,6 +11,7 @@ import matplotlib.pylab as plt
 import cv2
 import matplotlib.cm as cm
 from matplotlib.collections import LineCollection
+from utils import load_config, abs_path
 
 #%% Input 
 
@@ -21,15 +22,15 @@ plot_blobs_all_step = 0
 save_movie_blobs = 1
 save_movie_without_blobs = 0
 
-
-Nblobs_vec = [14]
-Nrods_vec = [2] #Do not vary with a np.arrange
-phase_shift_vec = [2.0] 
+config = load_config()
+Nblobs_vec = [config.Nblobs]
+Nrods_vec = [config.Nrods] #Do not vary with a np.arrange
+phase_shift_vec = [config.phase_shift]
 
 
 root_name = 'bacillaria_'
 # Path = '/home/ely/Documents/internship/RigidMultiblobsWall-master-JLD/multi_bodies/examples/Optim/'
-Path = os.path.dirname(__file__) + "/"
+Path = abs_path(config.output_directory)
 
 Nstep = 80
 dt = 0.0025
