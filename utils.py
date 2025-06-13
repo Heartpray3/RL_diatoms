@@ -28,6 +28,6 @@ def abs_path(directory: str) -> str:
 def get_sim_folder(sub_folder_name: str, n_rods: int, n_blobs: int):
     rod_folder = f'{n_rods}_Rods'
     blob_folder = f'{n_blobs}_Blobs'
-    parent_folder = os.path.join(rod_folder, blob_folder)
+    parent_folder = os.path.join(blob_folder, rod_folder)
     output_folder = os.path.join(parent_folder, sub_folder_name)
     return output_folder
