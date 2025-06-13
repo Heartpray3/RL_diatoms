@@ -11,7 +11,7 @@ blob_blob_force_implementation           None
 
 # Set time step, number of steps and save frequency
 dt                                       0.0025
-n_steps                                  80
+n_steps                                  1
 n_save                                   1
 update_PC                                1
 solver_tolerance                         1e-5
