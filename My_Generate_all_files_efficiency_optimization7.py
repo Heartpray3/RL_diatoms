@@ -18,8 +18,9 @@ import numpy as np
 import math
 import shutil
 import argparse
+import shutil
+from utils import get_sim_folder
 
-    
 def quaternion_rotation_matrix(q0,q1,q2,q3):
     """
     Covert a quaternion into a full three-dimensional rotation matrix.
@@ -112,16 +113,18 @@ def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep
     # suffix_fourier += f'n_{nmodes}'
     
     foldername = filename #+ suffix_phase_shift #+ suffix_fourier
-    
-    rod_folder = f'{Nrods}_Rods'
-    blob_folder = f'{Nblobs}_Blobs'
-    parent_folder = os.path.join(rod_folder,blob_folder)
-    output_folder = os.path.join(parent_folder, foldername)
-    
+
+    output_folder = get_sim_folder(foldername, Nrods, Nblobs)
     if os.path.exists(output_folder):
         print("Folder {} already exists!".format(output_folder))
-        return()
-    
+        response = input("Do you want to restart the simulation ? (y/n) : ").strip().lower()
+        if response == 'y':
+            shutil.rmtree(output_folder)
+            print("Simulation restarted.")
+        else:
+            print("Abort simulation.")
+            return ()
+
     os.makedirs(output_folder)
     
     input_directory = '/home/ely/Documents/internship/RigidMultiblobsWall-master-JLD/multi_bodies/examples/RL_diatoms/'
@@ -261,8 +264,6 @@ def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep
     my_command = f'python3 ../../../multi_bodies_bacillaria1.py --input-file {filename_input_local}' #+ ' --print-residual'
     os.system(my_command)
     # os.chdir('../')
-    
-
 
 if __name__ == "__main__":
 
