@@ -88,8 +88,12 @@ for nb in range(Nb):
     Nblobs = Nblobs_vec[nb]
     suffix_Nrods = str(Nblobs) +  '_blobs_'
     filename1 = root_name + suffix_Nrods
-    
-    f  = open(root_name + str(Nblobs) + '_blobs.vertex')
+
+    filename_blob_vertex = os.path.join(str(Nblobs) + "_Blobs", root_name + str(Nblobs) + '_blobs.vertex')
+    if not os.path.exists(filename_blob_vertex):
+        print(f"File {filename_blob_vertex} does not exist.")
+        exit()
+    f  = open(filename_blob_vertex, 'r')
     data1 = f.read()
     data1 = data1.split()
     

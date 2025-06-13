@@ -152,7 +152,7 @@ def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep
      
     ## Generate Vertex files 
     
-    with open(output_folder + '/'+ root_name + str(Nblobs) +  '_blobs.vertex', "w") as f:
+    with open(os.path.join(output_directory, f"{Nblobs}_Blobs",  root_name + str(Nblobs) +  '_blobs.vertex'), "w") as f:
         f.write(str(Nblobs) + "\n")
         Start = -((Nblobs/2-1)*X_step + X_coef)
         for i in range(Nblobs):
@@ -166,7 +166,7 @@ def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep
     fid= open(output_folder + '/' + filename_list_vertex,'w')
     
     for n in range(Nrods):
-        fid.write(filename_vertex + '\n')
+        fid.write(os.path.join(output_directory, f"{Nblobs}_Blobs" , filename_vertex) + '\n')
     fid.close()
     
     ## Constraints
