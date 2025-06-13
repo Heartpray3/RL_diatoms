@@ -55,6 +55,21 @@ def quaternion_rotation_matrix(q0,q1,q2,q3):
                             
     return rot_matrix
 
+
+def update_dat(input_file, output_file, updates):
+    lines = open(input_file).readlines()
+    max_len = max((len(l.split()[0]) for l in lines if l.strip() and not l.strip().startswith('#')), default=0)
+
+    with open(output_file, 'w') as f:
+        for line in lines:
+            if not line.strip() or line.lstrip().startswith('#'):
+                f.write(line)
+                continue
+            key, *vals = line.split()
+            new_vals = updates.get(key, vals)
+            f.write(f"{key.ljust(max_len + 1)}{' '.join(new_vals)}\n")
+
+
 def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep, freq):
     an = [float(i) for i in an.replace('*','-').split('/')[:nmodes]]
     bn = [float(i) for i in bn.replace('*','-').split('/')[:nmodes]]
@@ -224,44 +239,24 @@ def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep
     fid.close()
     
     ## Modify input file accordingly
-    os.chdir(input_directory)
+    # os.chdir(input_directory)
     filename_input = 'inputfile_bacillaria'
-    fid = open(filename_input +  '.dat','r')
-    C=fid.readlines()
-    fid.close()
-    
-    Line_output = C[12]
-    Line_output = Line_output.split()
-    Line_output[1] = str(dt) + '\n'
-    Line_output = ' '.join(Line_output)
-    C[12] = Line_output
-    
-    Line_output = C[13]
-    Line_output = Line_output.split()
-    Line_output[1] = str(Nstep) + '\n'
-    Line_output = ' '.join(Line_output)
-    C[13] = Line_output
-    
-    Line_output = C[34]
-    Line_output = Line_output.split()
-    Line_output[1] = 'run_' +  foldername
-    Line_output = ' '.join(Line_output)
-    C[34] = Line_output
-    
-    Line_const = C[39]
-    Line_const = Line_const.split()
-    Line_const[1] =  filename_list_vertex
-    Line_const[2] =  filename_clones
-    Line_const[3] =  filename_const
-    Line_const = ' '.join(Line_const)
-    C[39] = Line_const
-    
-    
+    input_path = os.path.join(input_directory, filename_input + '.dat')
+
+    # Valeurs à mettre à jour
+    updates = {
+        'dt': [str(dt)],
+        'n_steps': [str(Nstep)],
+        'output_name': ['run_' + foldername],
+        'articulated': [filename_list_vertex, filename_clones, filename_const]
+    }
+
+    # Chemin de sortie
     os.chdir(os.path.join(output_directory, output_folder))
-    filename_input_local = filename_input +  '_' +  suffix_Nrods +  '.dat'
-    fid = open(filename_input_local, 'w')           
-    fid.writelines(C) 
-    fid.close()
+    filename_input_local = f"{filename_input}_{suffix_Nrods}.dat"
+
+    # Écriture du nouveau fichier .dat
+    update_dat(input_path, filename_input_local, updates)
     
     my_command = f'python3 ../../../multi_bodies_bacillaria1.py --input-file {filename_input_local}' #+ ' --print-residual'
     os.system(my_command)
