@@ -262,7 +262,6 @@ def main(input_directory, output_directory, Nblobs, phase_shift, Nrods, an, bn, 
     
     my_command = f'python3 ../../../multi_bodies_bacillaria1.py --input-file {filename_input_local}' #+ ' --print-residual'
     os.system(my_command)
-    # os.chdir('../')
 
 if __name__ == "__main__":
 

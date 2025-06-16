@@ -1,4 +1,4 @@
-from utils import load_config, abs_path
+from utils import load_config
 from My_Generate_all_files_efficiency_optimization7 import main
 
 if __name__ == '__main__':
