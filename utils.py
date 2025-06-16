@@ -5,6 +5,7 @@ import os
 
 @dataclass
 class Config:
+    input_directory: str
     output_directory: str
     Nblobs: int
     phase_shift: float
@@ -18,7 +19,10 @@ class Config:
 
 def load_config(path="config.yaml") -> Config:
     with open(path, 'r') as file:
-        return Config(**yaml.safe_load(file))
+        config = Config(**yaml.safe_load(file))
+        config.input_directory = abs_path(config.input_directory)
+        config.output_directory = abs_path(config.output_directory)
+    return config
 
 def abs_path(directory: str) -> str:
     script_dir = Path(__file__).parent.resolve()

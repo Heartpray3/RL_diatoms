@@ -29,8 +29,7 @@ phase_shift_vec = [config_file.phase_shift]
 
 
 root_name = 'bacillaria_'
-# Path = '/home/ely/Documents/internship/RigidMultiblobsWall-master-JLD/multi_bodies/examples/Optim/'
-working_dir = abs_path(config_file.output_directory)
+working_dir = config_file.output_directory
 
 # Nstep = 80
 # dt = 0.0025

@@ -5,7 +5,8 @@ if __name__ == '__main__':
     config = load_config()
 
     main(
-        abs_path(config.output_directory),
+        config.input_directory,
+        config.output_directory,
         config.Nblobs,
         config.phase_shift,
         config.Nrods,
