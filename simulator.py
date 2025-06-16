@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Feb 27 16:00:01 2025
+Created on Thu Jun 9 13:00:01 2025
 
-@author: stefani
+@author: Ely Cheikh Abass
 
-Copie du code de Julien
-Adapté de la v6
+La structure de base est inspire du code de Julien/Stefanie
 
-v7 - an and bn coefficients are given as inputs as strings separated by /.
 
+Code d'apprentissage par renforcement / simulation
 """
 
 from __future__ import division, print_function
@@ -69,16 +68,76 @@ def update_dat(input_file, output_file, updates):
             new_vals = updates.get(key, vals)
             f.write(f"{key.ljust(max_len + 1)}{' '.join(new_vals)}\n")
 
+import os
 
-def main(input_directory, output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep, freq):
-    an = [float(i) for i in an.replace('*','-').split('/')[:nmodes]]
-    bn = [float(i) for i in bn.replace('*','-').split('/')[:nmodes]]
+def write_move_const(
+    output_folder: str,
+    file_name: str,
+    Nrods: int,
+    moving_rod: int,      # indice [0‥Nrods-1]
+    direction: int,       # +1 ou -1
+    a: float,             # rayon → déplacement cible = 2a
+    dt: float,            # pas de temps
+    Nconst_per_rod: int = 2,
+    offset: float = 0.1
+) -> str:
+    """
+    Écrit un fichier .const basé sur un déplacement linéaire de ±2a
+    pour le bâtonnet `moving_rod`, pendant dt. Respecte le format de contraintes complet.
+    """
 
-    a = 0.183228708092682  
-    
-    # dt = 0.00125
-    # Nstep = 160
-    # freq = 10
+    const_path = os.path.join(output_folder, file_name)
+    with open(const_path, "w") as fid:
+        fid.write(f"{Nrods}\n")
+        fid.write(f"{(Nrods - 1) * Nconst_per_rod}\n")
+
+        sixzeros = '0 0 0 0 0 0'
+
+        for n in range(Nrods - 1):
+            pos1z, pos2z = ' 0 ', ' 0 '
+            pos1y, pos2y = f"{a} ", f"{-a} "
+            vel1z = vel2z = vel1y = vel2y = ' 0 '
+
+            pos1x = pos2x = '0'
+            vel1x = vel2x = '0'
+            expression = a / (2 * dt) * direction
+            if n == moving_rod:
+                pos1x = f"{expression}*t"
+                pos2x = f"{-expression}*t"
+                vel1x = f"{expression}"
+                vel2x = f"{-expression}"
+            elif n + 1 == moving_rod:
+                pos1x = f"{-expression}*t"
+                pos2x = f"{expression}*t"
+                vel1x = f"{-expression}"
+                vel2x = f"{expression}"
+
+            c1 = (
+                f"{n} {n + 1} {sixzeros} "
+                f"{pos1x} {pos1z}{pos1y}"
+                f"{pos2x} {pos2z}{pos2y}"
+                f"{vel1x} {vel1z}{vel1y}"
+                f"{vel2x} {vel2z}{vel2y}"
+            )
+            fid.write(c1 + '\n')
+
+            if Nconst_per_rod >= 2:
+                c2 = (
+                    f"{n} {n + 1} {sixzeros} "
+                    f"{1 + offset}*({pos1x}) {pos1z}{(1 + offset) * a} "
+                    f"{1 - offset}*({pos2x}) {pos2z}{(1 - offset) * -a} "
+                    f"{1 + offset}*({vel1x}) {vel1z}{vel1y} "
+                    f"{1 - offset}*({vel2x}) {vel2z}{vel2y}"
+                )
+                fid.write(c2 + '\n')
+
+    return const_path
+
+
+
+def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep, freq):
+
+    a = 0.183228708092682
     
     ##Generate vextex files 
     X_coef = 7.4209799e-02
@@ -86,8 +145,6 @@ def main(input_directory, output_directory, Nblobs, phase_shift, Nrods, an, bn, 
     
     Nconst_per_rod = 2
     root_name = 'bacillaria_'
-    
-    
     
     #%% Code Generate_const_clone_list_vertex_file_and_execute_Blobs
     
@@ -125,10 +182,8 @@ def main(input_directory, output_directory, Nblobs, phase_shift, Nrods, an, bn, 
             return ()
 
     os.makedirs(output_folder)
-    
-    # input_directory = '/home/ely/Documents/internship/RigidMultiblobsWall-master-JLD/multi_bodies/examples/RL_diatoms/'
-    # input_directory = os.path.join(os.path.dirname(__file__), output_folder)
-    ## Generate clones files 
+
+    ## Generate clones files
     filename_clones = filename +  '.clones'
     
     pos = np.zeros((Nrods,3))
@@ -136,7 +191,7 @@ def main(input_directory, output_directory, Nblobs, phase_shift, Nrods, an, bn, 
     
     for n in range(Nrods):
         pos[n,2] = (n-1)*2*a
-        quat[n,0] = 1;
+        quat[n,0] = 1
     mean_pos = np.mean(pos,axis=0)
     
     for n in range(Nrods):
@@ -171,74 +226,85 @@ def main(input_directory, output_directory, Nblobs, phase_shift, Nrods, an, bn, 
     ## Constraints
     Nconst = (Nrods-1)*Nconst_per_rod
     filename_const = filename +  '.const'
-    fid= open(output_folder + '/' + filename_const, 'w')
-    fid.write(str(Nrods) + '\n')
-    fid.write(str(Nconst) + '\n')
-    
-    sixzeros = '0 0 0 0 0 0'
-    for n in range(Nrods-1): 
-        ps = phase_shift*n*math.pi/(Nrods-1)
+    write_move_const(output_folder,
+                     filename_const,
+                     Nrods=Nrods,
+                     moving_rod=0,
+                     direction=-1,
+                     a=a,
+                     dt=dt
+                     )
 
-        if Nconst_per_rod >= 1:
-            pos1z = ' 0 '
-            pos2z = ' 0 '
-            pos1y = str(a) + ' '
-            pos2y = str(-a) + ' '
-            vel1z = ' 0 '
-            vel2z = ' 0 '
-            vel1y = ' 0 '
-            vel2y = ' 0 '
- 
-            pos1x = ''
-            pos2x = ''
-            vel1x = '0'
-            vel2x = '0'
-		      
-            for i in range(nmodes):
-                pos1x += f'+{str(L*an[i])}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(L*bn[i])}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
-                pos2x += f'+{str(-L*an[i])}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(-L*bn[i])}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
-                vel1x += f'+{str(-L*an[i]*2*math.pi*freq*(i+1))}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(L*bn[i]*2*math.pi*freq*(i+1))}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
-                vel2x += f'+{str(L*an[i]*2*math.pi*freq*(i+1))}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(-L*bn[i]*2*math.pi*freq*(i+1))}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
-				  		
-            c1 = str(n) + ' '\
-                + str(n+1) + ' '\
-                + sixzeros + ' '\
-                + pos1x \
-                + pos1z \
-                + pos1y \
-                + pos2x \
-                + pos2z \
-                + pos2y \
-                + vel1x \
-                + vel1z \
-                + vel1y \
-                + vel2x \
-                + vel2z \
-                + vel2y
-            fid.write(c1 + '\n')
-		
-        if Nconst_per_rod >= 2:
-            offset = 0.1
-		    # Location of second is arbitrary as long as it does not coincide with link 1
-            c2 = str(n) +  ' '\
-			+ str(n+1) +  ' '\
-			+ sixzeros + ' '\
-			+ str(1+offset) +  '*(' + pos1x + ')' \
-			+ pos1z \
-			+ str((1+offset)) + '*' + pos1y \
-			+ str((1-offset))+ '*(' + pos2x + ')'\
-			+ pos2z \
-			+ str((1-offset)) +  '*' + pos2y \
-			+ str((1+offset)) + '*(' + vel1x + ')'\
-			+ vel1z \
-			+ vel1y \
-			+ str((1-offset)) + '*(' + vel2x + ')'\
-			+ vel2z \
-			+ vel2y
-            
-            fid.write(c2 + '\n')
-    
-    fid.close()
+
+    ## LAST
+    # fid= open(output_folder + '/' + filename_const, 'w')
+    # fid.write(str(Nrods) + '\n')
+    # fid.write(str(Nconst) + '\n')
+    #
+    # sixzeros = '0 0 0 0 0 0'
+    # for n in range(Nrods-1):
+    #     ps = phase_shift*n*math.pi/(Nrods-1)
+    #
+    #     if Nconst_per_rod >= 1:
+    #         pos1z = ' 0 '
+    #         pos2z = ' 0 '
+    #         pos1y = str(a) + ' '
+    #         pos2y = str(-a) + ' '
+    #         vel1z = ' 0 '
+    #         vel2z = ' 0 '
+    #         vel1y = ' 0 '
+    #         vel2y = ' 0 '
+    #
+    #         pos1x = ''
+    #         pos2x = ''
+    #         vel1x = '0'
+    #         vel2x = '0'
+    #
+    #         for i in range(nmodes):
+    #             pos1x += f'+{str(L*an[i])}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(L*bn[i])}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
+    #             pos2x += f'+{str(-L*an[i])}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(-L*bn[i])}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
+    #             vel1x += f'+{str(-L*an[i]*2*math.pi*freq*(i+1))}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(L*bn[i]*2*math.pi*freq*(i+1))}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
+    #             vel2x += f'+{str(L*an[i]*2*math.pi*freq*(i+1))}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(-L*bn[i]*2*math.pi*freq*(i+1))}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
+    #
+    #         c1 = str(n) + ' '\
+    #             + str(n+1) + ' '\
+    #             + sixzeros + ' '\
+    #             + pos1x \
+    #             + pos1z \
+    #             + pos1y \
+    #             + pos2x \
+    #             + pos2z \
+    #             + pos2y \
+    #             + vel1x \
+    #             + vel1z \
+    #             + vel1y \
+    #             + vel2x \
+    #             + vel2z \
+    #             + vel2y
+    #         fid.write(c1 + '\n')
+    #
+    #     if Nconst_per_rod >= 2:
+    #         offset = 0.1
+	# 	    # Location of second is arbitrary as long as it does not coincide with link 1
+    #         c2 = str(n) +  ' '\
+	# 		+ str(n+1) +  ' '\
+	# 		+ sixzeros + ' '\
+	# 		+ str(1+offset) +  '*(' + pos1x + ')' \
+	# 		+ pos1z \
+	# 		+ str((1+offset)) + '*' + pos1y \
+	# 		+ str((1-offset))+ '*(' + pos2x + ')'\
+	# 		+ pos2z \
+	# 		+ str((1-offset)) +  '*' + pos2y \
+	# 		+ str((1+offset)) + '*(' + vel1x + ')'\
+	# 		+ vel1z \
+	# 		+ vel1y \
+	# 		+ str((1-offset)) + '*(' + vel2x + ')'\
+	# 		+ vel2z \
+	# 		+ vel2y
+    #
+    #         fid.write(c2 + '\n')
+    #
+    # fid.close()
     
     ## Modify input file accordingly
     # os.chdir(input_directory)
