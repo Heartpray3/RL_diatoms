@@ -16,7 +16,6 @@ from __future__ import division, print_function
 import os
 import numpy as np
 import math
-import shutil
 import argparse
 import shutil
 from utils import get_sim_folder
@@ -71,7 +70,7 @@ def update_dat(input_file, output_file, updates):
             f.write(f"{key.ljust(max_len + 1)}{' '.join(new_vals)}\n")
 
 
-def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep, freq):
+def main(input_directory, output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep, freq):
     an = [float(i) for i in an.replace('*','-').split('/')[:nmodes]]
     bn = [float(i) for i in bn.replace('*','-').split('/')[:nmodes]]
 
@@ -127,7 +126,7 @@ def main(output_directory, Nblobs, phase_shift, Nrods, an, bn, nmodes, dt, Nstep
 
     os.makedirs(output_folder)
     
-    input_directory = '/home/ely/Documents/internship/RigidMultiblobsWall-master-JLD/multi_bodies/examples/RL_diatoms/'
+    # input_directory = '/home/ely/Documents/internship/RigidMultiblobsWall-master-JLD/multi_bodies/examples/RL_diatoms/'
     # input_directory = os.path.join(os.path.dirname(__file__), output_folder)
     ## Generate clones files 
     filename_clones = filename +  '.clones'
