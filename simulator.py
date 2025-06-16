@@ -17,7 +17,9 @@ import numpy as np
 import math
 import argparse
 import shutil
-from utils import get_sim_folder
+from utils import get_sim_folder, ColonyState, Action
+from typing import List
+
 
 def quaternion_rotation_matrix(q0,q1,q2,q3):
     """
@@ -68,7 +70,6 @@ def update_dat(input_file, output_file, updates):
             new_vals = updates.get(key, vals)
             f.write(f"{key.ljust(max_len + 1)}{' '.join(new_vals)}\n")
 
-import os
 
 def write_move_const(
     output_folder: str,
@@ -134,6 +135,38 @@ def write_move_const(
     return const_path
 
 
+class DiatomEnv:
+    def __init__(self, n_rods: int, n_blobs: int, a: float, dt: float):
+        self.n_rods = n_rods
+        self.n_blobs = n_blobs
+        self.a = a
+        self.dt = dt
+        self.state = None
+        self.reset()
+
+    def get_available_actions(self, state: ColonyState):
+        available_actions: List[Action] = []
+        for n_gap, gap in enumerate(state.gaps):
+            if abs(gap) >= self.n_blobs - 1:
+                available_actions.append(Action(n_gap, -int(math.copysign(1, gap))))
+                continue
+            available_actions.append(Action(n_gap, +1))
+            available_actions.append(Action(n_gap, -1))
+        return available_actions
+
+    def reset(self) -> ColonyState:
+        self.state = ColonyState((0,)*(self.n_rods - 1))
+        return self.state
+
+    def step(self):
+        # TODO: get les actions
+        # TODO: choisir une action
+        # TODO: appliquer l'action generer le fichier const pr cette action
+        # TODO: lancer la simulation
+        # TODO: utiliser les informations du .config genere et les sauvegarder dans un fichier clones et un autre .config au fur et a mesure
+        # TODO: Calculer la vitesse instantan'ee et le reward
+        pass
+
 
 def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep, freq):
 
@@ -155,18 +188,6 @@ def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep, freq):
     
     suffix_Nrods = str(Nrods) +  '_rods'
     filename = filename1 + suffix_Nrods
-    
-    # suffix_phase_shift = '_phase_shift_' +  str(phase_shift).replace('.', '_') + 'pi'
-
-    # suffix_fourier = '_A_'
-    # for i in range(nmodes):
-    #     Aint, Afloat = str(an[i]).split('.')
-    #     suffix_fourier += f'{Aint}_{Afloat}_'
-    # suffix_fourier += 'B_'
-    # for i in range(nmodes):
-    #     Bint, Bfloat = str(bn[i]).split('.')
-    #     suffix_fourier += f'{Bint}_{Bfloat}_'
-    # suffix_fourier += f'n_{nmodes}'
     
     foldername = filename #+ suffix_phase_shift #+ suffix_fourier
 
@@ -224,7 +245,6 @@ def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep, freq):
     fid.close()
     
     ## Constraints
-    Nconst = (Nrods-1)*Nconst_per_rod
     filename_const = filename +  '.const'
     write_move_const(output_folder,
                      filename_const,
@@ -234,87 +254,15 @@ def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep, freq):
                      a=a,
                      dt=dt
                      )
-
-
-    ## LAST
-    # fid= open(output_folder + '/' + filename_const, 'w')
-    # fid.write(str(Nrods) + '\n')
-    # fid.write(str(Nconst) + '\n')
-    #
-    # sixzeros = '0 0 0 0 0 0'
-    # for n in range(Nrods-1):
-    #     ps = phase_shift*n*math.pi/(Nrods-1)
-    #
-    #     if Nconst_per_rod >= 1:
-    #         pos1z = ' 0 '
-    #         pos2z = ' 0 '
-    #         pos1y = str(a) + ' '
-    #         pos2y = str(-a) + ' '
-    #         vel1z = ' 0 '
-    #         vel2z = ' 0 '
-    #         vel1y = ' 0 '
-    #         vel2y = ' 0 '
-    #
-    #         pos1x = ''
-    #         pos2x = ''
-    #         vel1x = '0'
-    #         vel2x = '0'
-    #
-    #         for i in range(nmodes):
-    #             pos1x += f'+{str(L*an[i])}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(L*bn[i])}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
-    #             pos2x += f'+{str(-L*an[i])}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(-L*bn[i])}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
-    #             vel1x += f'+{str(-L*an[i]*2*math.pi*freq*(i+1))}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(L*bn[i]*2*math.pi*freq*(i+1))}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
-    #             vel2x += f'+{str(L*an[i]*2*math.pi*freq*(i+1))}*sin({str(2*math.pi*freq*(i+1))}*t+{str(ps)})+{str(-L*bn[i]*2*math.pi*freq*(i+1))}*cos({str(2*math.pi*freq*(i+1))}*t+{str(ps)})'
-    #
-    #         c1 = str(n) + ' '\
-    #             + str(n+1) + ' '\
-    #             + sixzeros + ' '\
-    #             + pos1x \
-    #             + pos1z \
-    #             + pos1y \
-    #             + pos2x \
-    #             + pos2z \
-    #             + pos2y \
-    #             + vel1x \
-    #             + vel1z \
-    #             + vel1y \
-    #             + vel2x \
-    #             + vel2z \
-    #             + vel2y
-    #         fid.write(c1 + '\n')
-    #
-    #     if Nconst_per_rod >= 2:
-    #         offset = 0.1
-	# 	    # Location of second is arbitrary as long as it does not coincide with link 1
-    #         c2 = str(n) +  ' '\
-	# 		+ str(n+1) +  ' '\
-	# 		+ sixzeros + ' '\
-	# 		+ str(1+offset) +  '*(' + pos1x + ')' \
-	# 		+ pos1z \
-	# 		+ str((1+offset)) + '*' + pos1y \
-	# 		+ str((1-offset))+ '*(' + pos2x + ')'\
-	# 		+ pos2z \
-	# 		+ str((1-offset)) +  '*' + pos2y \
-	# 		+ str((1+offset)) + '*(' + vel1x + ')'\
-	# 		+ vel1z \
-	# 		+ vel1y \
-	# 		+ str((1-offset)) + '*(' + vel2x + ')'\
-	# 		+ vel2z \
-	# 		+ vel2y
-    #
-    #         fid.write(c2 + '\n')
-    #
-    # fid.close()
     
     ## Modify input file accordingly
-    # os.chdir(input_directory)
     filename_input = 'inputfile_bacillaria'
     input_path = os.path.join(input_directory, filename_input + '.dat')
 
     # Valeurs à mettre à jour
     updates = {
         'dt': [str(dt)],
-        'n_steps': [str(Nstep)],
+        'n_steps': [str(1)], # RL feedback
         'output_name': ['run_' + foldername],
         'articulated': [filename_list_vertex, filename_clones, filename_const]
     }

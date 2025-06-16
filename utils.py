@@ -17,6 +17,16 @@ class Config:
     Nstep: int
     freq: int
 
+@dataclass(frozen=True)
+class ColonyState:
+    gaps: tuple[int, ...]
+
+@dataclass(frozen=True)
+class Action:
+    n_gap: int
+    direction: int
+
+
 def load_config(path="config.yaml") -> Config:
     with open(path, 'r') as file:
         config = Config(**yaml.safe_load(file))
