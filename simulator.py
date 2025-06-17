@@ -136,7 +136,17 @@ def write_move_const(
 
 
 class DiatomEnv:
-    def __init__(self, n_rods: int, n_blobs: int, a: float, dt: float):
+    def __init__(self,
+                 input_file_dir: str,
+                 working_dir: str,
+                 const_file_name: str,
+                 n_rods: int,
+                 n_blobs: int,
+                 a: float,
+                 dt: float):
+        self.input_file_dir = input_file_dir
+        self.output_dir = working_dir
+        self.const_filename = const_file_name
         self.n_rods = n_rods
         self.n_blobs = n_blobs
         self.a = a
@@ -158,8 +168,47 @@ class DiatomEnv:
         self.state = ColonyState((0,)*(self.n_rods - 1))
         return self.state
 
-    def step(self):
-        # TODO: get les actions
+    def step(self, action: Action):
+        """
+                Exécute une étape avec une action donnée.
+                Retourne : next_state, reward, done
+                """
+        moving_rod = action.n_gap
+        direction = action.direction
+
+        write_move_const(
+            output_folder=self.output_dir,
+            file_name=self.const_filename,
+            Nrods=self.n_rods,
+            moving_rod=moving_rod,
+            direction=direction,
+            a=self.a,
+            dt=self.dt
+        )
+
+        # Étape 3 : Lancer la simulation
+        os.system(f"python3 ../../../multi_bodies_bacillaria1.py --input-file {self.input_file_dir}")
+
+        # Étape 4 : Lire la sortie
+        try:
+            with open('output_velocity.txt', 'r') as f:
+                velocity = float(f.read().strip())
+        except (FileNotFoundError, ValueError):
+            velocity = 0.0  # Pénaliser si erreur ou fichier manquant
+
+        # Étape 5 : Calcul du reward
+        reward = velocity  # ou toute autre métrique
+
+        # Étape 6 : Mettre à jour l'état
+        new_gaps = list(self.state.gaps)
+        new_gaps[moving_rod] += direction
+        self.state = ColonyState(tuple(new_gaps))
+
+        # Étape 7 : Déterminer si l’épisode est fini (optionnel)
+        done = False
+
+        return self.state, reward, done
+
         # TODO: choisir une action
         # TODO: appliquer l'action generer le fichier const pr cette action
         # TODO: lancer la simulation
