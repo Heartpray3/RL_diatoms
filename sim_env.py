@@ -1,4 +1,5 @@
 import shutil
+import sys
 from dataclasses import dataclass
 import subprocess
 from pathlib import Path
@@ -35,6 +36,7 @@ class DiatomEnv:
         self.dt = dt
         self.state = None
         self.reset()
+        self.update_file = 'update_'
         self.setup(input_file_path, output_dir)
 
     def get_available_actions(self, state: ColonyState):
@@ -63,19 +65,22 @@ class DiatomEnv:
 
         # Étape 3 : Lancer la simulation
         subprocess.run(
-            ["python3",
-            "multi_bodies_bacillaria1.py",
-            f" --input-file {self.input_file_sim_path}",
+            [
+            "python3",
+            "../../../multi_bodies_bacillaria1.py",
+            "--input-file",
+            self.input_file_sim_path,
             # "--print-residual",
             ],
-            capture_output=True,
-            text=True,
-            check=True,
+            cwd=self.sim_dir,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
         )
 
         # Étape 4 : Lire la sortie
-        get_sim_file = lambda prefix, suffix: os.path.join(str(Path(self.input_file_sim_path).parent),
-                                       f"{prefix}{Path(self.input_file_sim_path).stem}{suffix}")
+        get_sim_file = lambda prefix, suffix: os.path.join(
+            str(self.sim_dir),
+           f"{prefix}bacillaria_{self.n_blobs}_blobs_{self.n_rods}_rods{suffix}")
         new_coords_file = get_sim_file("run.", ".config")
         clone_file = get_sim_file("", ".clones")
         *_, positions = self.extract_last_infos(clone_file)
@@ -83,7 +88,9 @@ class DiatomEnv:
         try:
             n, pos_lines, positions = self.extract_last_infos(new_coords_file)
             with open(clone_file, 'w') as f2:
-                f2.writelines([str(n)] + [pos_lines])
+                f2.writelines([n] + pos_lines)
+            with open(self.update_file, 'a') as f3:
+                f3.writelines([n] + pos_lines)
             new_cm = self.compute_center_of_mass(positions)
             inst_vel = [(c1 - c2)/self.dt for c1, c2 in zip(new_cm, last_cm)]
         except (FileNotFoundError, ValueError) as e:
@@ -107,9 +114,10 @@ class DiatomEnv:
         with open(file_path, 'r') as f:
             lines = list(f)
             for i in range(len(lines) - 1, -1, -1):
-                if lines[i].isdigit():
+                if lines[i].removesuffix('\n').isdigit():
                     n = int(lines[i])
                     pos_lines = lines[i + 1:i + 1 + n]
+                    n = lines[i]
                     break
             else:
                 raise ValueError(f"No positions found in this file {file_path}")
@@ -193,7 +201,7 @@ class DiatomEnv:
         # L_rods = self.n_blobs * 0.81 * a
         # L = 0.5 * 0.9 * L_rods
 
-        suffix_nrods = str(self.n_blobs) + '_rods'
+        suffix_nrods = str(self.n_rods) + '_rods'
         filename = filename1 + suffix_nrods
 
         foldername = filename  # + suffix_phase_shift #+ suffix_fourier
@@ -201,7 +209,8 @@ class DiatomEnv:
         self.sim_dir = get_sim_folder(output_dir, self.n_rods, self.n_blobs)
         if os.path.exists(self.sim_dir):
             print("Folder {} already exists!".format(self.sim_dir))
-            response = input("Do you want to restart the simulation ? (y/n) : ").strip().lower()
+            # response = input("Do you want to restart the simulation ? (y/n) : ").strip().lower()
+            response = 'y' #input("Do you want to restart the simulation ? (y/n) : ").strip().lower()
             if response == 'y':
                 shutil.rmtree(self.sim_dir)
                 print("Simulation restarted.")
@@ -228,6 +237,11 @@ class DiatomEnv:
         to_save = np.concatenate((pos, quat), axis=1)
 
         fid = open(os.path.join(self.sim_dir, filename_clones), 'w')
+        fid.write(str(self.n_rods) + '\n')
+        np.savetxt(fid, to_save)
+        fid.close()
+        self.update_file = os.path.join(self.sim_dir, self.update_file + filename + '.config')
+        fid = open(self.update_file, 'w')
         fid.write(str(self.n_rods) + '\n')
         np.savetxt(fid, to_save)
         fid.close()
@@ -285,3 +299,68 @@ class DiatomEnv:
                 key, *vals = line.split()
                 new_vals = updates.get(key, vals)
                 f.write(f"{key.ljust(max_len + 1)}{' '.join(new_vals)}\n")
+
+    @staticmethod # not tested, todo: test it
+    def infer_colony_state_from_positions(pos: np.ndarray, quats: np.ndarray, a: float) -> ColonyState:
+        """
+        Reconstitue le ColonyState (les gaps) à partir des positions et orientations (quaternions).
+        Utilise une moyenne d'orientation pour chaque paire de bâtonnets.
+        """
+        n_rods = len(pos)
+        gaps = []
+
+        for i in range(n_rods - 1):
+            p1 = pos[i]
+            p2 = pos[i + 1]
+
+            # Récupérer axes locaux X des deux bâtonnets
+            rot1 = quaternion_rotation_matrix(*quats[i])
+            rot2 = quaternion_rotation_matrix(*quats[i + 1])
+            axis1 = rot1[:, 0]  # X local
+            axis2 = rot2[:, 0]
+
+            # Axe moyen
+            avg_axis = (axis1 + axis2) / 2
+            avg_axis /= np.linalg.norm(avg_axis)
+
+            delta = p2 - p1
+            gap_proj = np.dot(delta, avg_axis)
+            gap = int(round(gap_proj / (2 * a)))
+            gaps.append(gap)
+
+        return ColonyState(tuple(gaps))
+
+def quaternion_rotation_matrix(q0, q1, q2, q3):
+    """
+    Covert a quaternion into a full three-dimensional rotation matrix.
+
+    Input
+    q0,q1,q2,q3
+
+    Output
+    :return: A 3x3 element matrix representing the full 3D rotation matrix.
+             This rotation matrix converts a point in the local reference
+             frame to a point in the global reference frame.
+    """
+
+    # First row of the rotation matrix
+    r00 = 2 * (q0 * q0 + q1 * q1) - 1
+    r01 = 2 * (q1 * q2 - q0 * q3)
+    r02 = 2 * (q1 * q3 + q0 * q2)
+
+    # Second row of the rotation matrix
+    r10 = 2 * (q1 * q2 + q0 * q3)
+    r11 = 2 * (q0 * q0 + q2 * q2) - 1
+    r12 = 2 * (q2 * q3 - q0 * q1)
+
+    # Third row of the rotation matrix
+    r20 = 2 * (q1 * q3 - q0 * q2)
+    r21 = 2 * (q2 * q3 + q0 * q1)
+    r22 = 2 * (q0 * q0 + q3 * q3) - 1
+
+    # 3x3 rotation matrix
+    rot_matrix = np.array([[r00, r01, r02],
+                           [r10, r11, r12],
+                           [r20, r21, r22]])
+
+    return rot_matrix
