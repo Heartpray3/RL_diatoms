@@ -23,7 +23,7 @@ def q_learning(env: DiatomEnv, episodes=1000, steps_per_episode=200, alpha=0.1, 
     Q = defaultdict(float)
 
     for ep in range(episodes):
-        state = env.reset()
+        state = env.reset(ep)
         total_reward = 0
 
         for step in range(steps_per_episode):  # max steps per episode
@@ -70,14 +70,14 @@ def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep):
     )
 
     # Lancer l'apprentissage Q-learning
-    Q = q_learning(env, episodes=3, steps_per_episode=50)
+    Q = q_learning(env, episodes=200, steps_per_episode=100)
 
     # Sauvegarder la table Q
     with open('q_table.pkl', 'wb') as f:
         pickle.dump(dict(Q), f)
     print("Q-table sauvegardée dans q_table.pkl")
 
-    validate_policy(env, Q, episodes=3)
+    # validate_policy(env, Q, episodes=3)
 
 
 if __name__ == "__main__":

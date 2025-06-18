@@ -8,7 +8,7 @@ import random
 def validate_policy(env: DiatomEnv, Q: dict, episodes: int = 5):
     print("\n=== VALIDATION ===")
     for ep in range(episodes):
-        state = env.reset()
+        state = env.reset(ep)
         total_reward = 0
 
         for step in range(200):
