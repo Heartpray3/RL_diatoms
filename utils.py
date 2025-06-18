@@ -11,6 +11,7 @@ class Config:
     Nrods: int
     dt: float
     Nstep: int
+    freq: float
 
 
 def load_config(path="config.yaml") -> Config:
@@ -30,5 +31,5 @@ def get_sim_folder(output_dir: str, n_rods: int, n_blobs: int):
     rod_folder = f'{n_rods}_Rods'
     blob_folder = f'{n_blobs}_Blobs'
     parent_folder = os.path.join(blob_folder, rod_folder)
-    output_folder = os.path.join(parent_folder, root_name + f"{n_blobs}_blobs_{n_blobs}_rods")
+    output_folder = os.path.join(parent_folder, root_name + f"{n_blobs}_blobs_{n_rods}_rods")
     return os.path.join(output_dir, output_folder)
