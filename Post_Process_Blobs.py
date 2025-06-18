@@ -159,7 +159,7 @@ for nb in range(Nb):
             psint = psint[0]
             psfloat = psfloat[0]
 
-            sim_dir = get_sim_folder(str(filename1) + str(Nrods) + '_rods', Nrods, Nblobs)
+            sim_dir = get_sim_folder(config_file.output_directory, Nrods, Nblobs)
             os.chdir(os.path.join(working_dir, sim_dir))
 
             f  = open('run_'+str(filename1)+str(Nrods)+'_rods.'+str(filename1)+str(Nrods)+'_rods.config','r')

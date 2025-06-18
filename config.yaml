@@ -1,4 +1,4 @@
-input_directory: "./"
+input_file_path: "./inputfile_bacillaria.dat"
 output_directory: "./"
 Nblobs: 14
 phase_shift: 2.0
