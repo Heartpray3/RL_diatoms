@@ -8,14 +8,9 @@ class Config:
     input_file_path: str
     output_directory: str
     Nblobs: int
-    phase_shift: float
     Nrods: int
-    an: str
-    bn: str
-    nmodes: int
     dt: float
     Nstep: int
-    freq: int
 
 
 def load_config(path="config.yaml") -> Config:

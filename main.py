@@ -11,5 +11,4 @@ if __name__ == '__main__':
         config.Nrods,
         config.dt,
         config.Nstep,
-        config.freq
     )

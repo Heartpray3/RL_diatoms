@@ -56,14 +56,10 @@ def quaternion_rotation_matrix(q0,q1,q2,q3):
                             
     return rot_matrix
 
-def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep, freq):
+def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep):
     a = 0.183228708092682  # blob radius
     DiatomEnv(input_directory, output_directory, Nrods, Nblobs, dt, a)
 
-    
-    # my_command = f'python3
-    # multi_bodies_bacillaria1.py --input-file {filename_input_local}' #+ ' --print-residual'
-    # os.system(my_command)
 
 if __name__ == "__main__":
 
@@ -78,4 +74,4 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    main(args.input_directory, args.output_directory, args.Nblobs, args.Nrods, args.dt, args.Nstep, args.freq)
+    main(args.input_directory, args.output_directory, args.Nblobs, args.Nrods, args.dt, args.Nstep)

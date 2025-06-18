@@ -25,7 +25,7 @@ save_movie_without_blobs = 0
 config_file = load_config()
 Nblobs_vec = [config_file.Nblobs]
 Nrods_vec = [config_file.Nrods] #Do not vary with a np.arrange
-phase_shift_vec = [config_file.phase_shift]
+phase_shift_vec = [2.0]
 
 
 root_name = 'bacillaria_'
