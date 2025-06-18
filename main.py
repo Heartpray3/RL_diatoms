@@ -1,5 +1,5 @@
 from utils import load_config
-from simulator import main
+from train import main
 
 if __name__ == '__main__':
     config = load_config()
