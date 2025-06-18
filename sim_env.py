@@ -27,6 +27,8 @@ class DiatomEnv:
                  n_blobs: int,
                  a: float,
                  dt: float):
+        self.input_parm = input_file_path
+        self.output_param = output_dir
         self.input_file_sim_path = ''
         self.sim_dir = ''
         self.const_filename = ''
@@ -35,9 +37,10 @@ class DiatomEnv:
         self.a = a
         self.dt = dt
         self.state = None
-        self.reset()
-        self.update_file = 'update_'
-        self.setup(input_file_path, output_dir)
+        self.update_file = ''
+        self.setup(input_file_path, output_dir, delete_folder=True)
+        self.update_file = ''
+        self.reset(0)
 
     def get_available_actions(self, state: ColonyState):
         available_actions: List[Action] = []
@@ -183,12 +186,13 @@ class DiatomEnv:
 
         return const_path
 
-    def reset(self) -> ColonyState:
+    def reset(self, episode_nb: int) -> ColonyState:
         self.state = ColonyState((0,)*(self.n_rods - 1))
-
+        self.update_file = f'step_{episode_nb}_update_'
+        self.setup(self.input_parm, self.output_param, delete_folder=False)
         return self.state
 
-    def setup(self, input_file_path, output_dir):
+    def setup(self, input_file_path, output_dir, delete_folder=True):
         # %% Code Generate_const_clone_list_vertex_file_and_execute_Blobs
         X_coef = 7.4209799e-02
         X_step = 2 * X_coef
@@ -208,17 +212,18 @@ class DiatomEnv:
 
         self.sim_dir = get_sim_folder(output_dir, self.n_rods, self.n_blobs)
         if os.path.exists(self.sim_dir):
-            print("Folder {} already exists!".format(self.sim_dir))
-            # response = input("Do you want to restart the simulation ? (y/n) : ").strip().lower()
-            response = 'y' #input("Do you want to restart the simulation ? (y/n) : ").strip().lower()
-            if response == 'y':
-                shutil.rmtree(self.sim_dir)
-                print("Simulation restarted.")
-            else:
-                print("Abort simulation.")
-                return ()
-
-        os.makedirs(self.sim_dir)
+            if delete_folder:
+                print("Folder {} already exists!".format(self.sim_dir))
+                response = input("Do you want to restart the simulation ? (y/n) : ").strip().lower()
+                if response == 'y':
+                    shutil.rmtree(self.sim_dir)
+                    print("Simulation restarted.")
+                    os.makedirs(self.sim_dir)
+                else:
+                    print("Abort simulation.")
+                    return ()
+        else:
+            os.makedirs(self.sim_dir)
 
         ## Generate clones files
         filename_clones = filename + '.clones'
