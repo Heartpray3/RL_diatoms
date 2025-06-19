@@ -16,7 +16,7 @@ class ColonyState:
 
 @dataclass(frozen=True)
 class Action:
-    n_gap: int
+    n_rod: int
     direction: int
 
 class DiatomEnv:
@@ -58,11 +58,11 @@ class DiatomEnv:
                 Exécute une étape avec une action donnée.
                 Retourne : next_state, reward, done
                 """
-        gap_number = action.n_gap
+        rod_number = action.n_rod
         direction = action.direction
 
         self.write_move_const(
-            moving_rod=gap_number,
+            moving_rod=rod_number,
             direction=direction
         )
 
@@ -102,7 +102,11 @@ class DiatomEnv:
 
         # Étape 6 : Mettre à jour l'état
         new_gaps = list(self.state.gaps)
-        new_gaps[gap_number] += direction
+        for offset, sign in zip([-1, 0], [-1, 1]):
+            idx = rod_number + offset
+            if idx < 0 or idx >= len(new_gaps):
+                continue
+            new_gaps[idx] += direction * sign
         self.state = ColonyState(tuple(new_gaps))
 
         return self.state, inst_vel
@@ -159,11 +163,11 @@ class DiatomEnv:
                     pos2x = f"{-expression}*t"
                     vel1x = f"{expression}"
                     vel2x = f"{-expression}"
-                elif n + 1 == moving_rod:
-                    pos1x = f"{-expression}*t"
-                    pos2x = f"{expression}*t"
-                    vel1x = f"{-expression}"
-                    vel2x = f"{expression}"
+                # elif n + 1 == moving_rod:
+                #     pos1x = f"{-expression}*t"
+                #     pos2x = f"{expression}*t"
+                #     vel1x = f"{-expression}"
+                #     vel2x = f"{expression}"
 
                 c1 = (
                     f"{n} {n + 1} {sixzeros} "
@@ -305,6 +309,33 @@ class DiatomEnv:
                 new_vals = updates.get(key, vals)
                 f.write(f"{key.ljust(max_len + 1)}{' '.join(new_vals)}\n")
 
+    def physical_colony_state(self) -> ColonyState:
+        """
+        Lit un fichier .clones ou .config et reconstruit le ColonyState.
+        """
+        get_sim_file = lambda prefix, suffix: os.path.join(
+            str(self.sim_dir),
+            f"{prefix}bacillaria_{self.n_blobs}_blobs_{self.n_rods}_rods{suffix}")
+        # new_coords_file = get_sim_file("run.", ".config")
+        clone_file = get_sim_file("", ".clones")
+        # *_, positions = self.extract_last_infos(clone_file)
+        with open(clone_file, 'r') as f:
+            lines = f.readlines()
+
+        for i in range(len(lines)):
+            if lines[i].strip().isdigit():
+                n = int(lines[i])
+                data = lines[i + 1:i + 1 + n]
+                break
+        else:
+            raise ValueError("Pas de section positions trouvée dans le fichier")
+
+        array = np.array([[float(x) for x in line.strip().split()] for line in data])
+        pos = array[:, :3]
+        quats = array[:, 3:]
+
+        return self.infer_colony_state_from_positions(pos, quats, self.a)
+
     @staticmethod # not tested, todo: test it
     def infer_colony_state_from_positions(pos: np.ndarray, quats: np.ndarray, a: float) -> ColonyState:
         """
@@ -315,22 +346,8 @@ class DiatomEnv:
         gaps = []
 
         for i in range(n_rods - 1):
-            p1 = pos[i]
-            p2 = pos[i + 1]
-
-            # Récupérer axes locaux X des deux bâtonnets
-            rot1 = quaternion_rotation_matrix(*quats[i])
-            rot2 = quaternion_rotation_matrix(*quats[i + 1])
-            axis1 = rot1[:, 0]  # X local
-            axis2 = rot2[:, 0]
-
-            # Axe moyen
-            avg_axis = (axis1 + axis2) / 2
-            avg_axis /= np.linalg.norm(avg_axis)
-
-            delta = p2 - p1
-            gap_proj = np.dot(delta, avg_axis)
-            gap = int(round(gap_proj / (2 * a)))
+            delta_x = np.linalg.norm(pos[i + 1] - pos[i])
+            gap = int(round(delta_x / (4 * a))) # WEIRD TODO
             gaps.append(gap)
 
         return ColonyState(tuple(gaps))

@@ -162,7 +162,7 @@ for nb in range(Nb):
             sim_dir = get_sim_folder(config_file.output_directory, Nrods, Nblobs)
             os.chdir(os.path.join(working_dir, sim_dir))
 
-            f  = open('update_'+str(filename1)+str(Nrods)+'_rods.config','r')
+            f  = open('step_0_update_'+str(filename1)+str(Nrods)+'_rods.config','r')
             data2 = f.read()
             data2 = data2.split()
                     

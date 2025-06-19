@@ -15,7 +15,7 @@ import argparse
 import random
 import pickle
 from collections import defaultdict
-from sim_env import DiatomEnv
+from sim_env import DiatomEnv, Action
 from validate import validate_policy
 
 
@@ -68,20 +68,35 @@ def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep):
         dt=dt,
         a=a
     )
+    # infos = []
+    # num_state = []
+    # for i in range(11):
+    #     num_state.append(env.state)
+    #     phys_state = env.physical_colony_state()
+    #     if env.state != phys_state:
+    #         infos.append(f"Attention step {i} les states sont differents: phys {phys_state}, num {env.state}")
+    #     env.step(Action(i % Nrods, +1))
+    # print(infos)
+    # print(num_state)
+    # return ()
 
     # Lancer l'apprentissage Q-learning
-    Q = q_learning(env, episodes=200, steps_per_episode=100)
+    episodes = 1000
+    steps_per_episode = 40
+    Q = q_learning(env, episodes=episodes, steps_per_episode=steps_per_episode)
 
     # Sauvegarder la table Q
-    with open('q_table.pkl', 'wb') as f:
+    with open(f'q_table_{Nblobs}_blobs_{Nrods}_rods_{episodes}_ep_{steps_per_episode}_steps.pkl', 'wb') as f:
         pickle.dump(dict(Q), f)
     print("Q-table sauvegardée dans q_table.pkl")
 
-    # validate_policy(env, Q, episodes=3)
+
+# validate_policy(env, Q, episodes=3)
 
 
 if __name__ == "__main__":
 
+    # test
     parser = argparse.ArgumentParser(description="Traite des fichiers avec optimisation d'efficacité.")
     parser.add_argument("--input_directory", type=str, required=True, help= "Fichier de d'entree")
     parser.add_argument("--output_directory", type=str, required=True, help= "Fichier de sortie")
