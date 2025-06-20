@@ -6,9 +6,11 @@ from pathlib import Path
 import os
 import math
 from typing import List
+
+
 from utils import get_sim_folder
 import numpy as np
-
+from itertools import combinations
 
 @dataclass(frozen=True)
 class ColonyState:
@@ -44,12 +46,20 @@ class DiatomEnv:
 
     def get_available_actions(self, state: ColonyState):
         available_actions: List[Action] = []
-        for n_gap, gap in enumerate(state.gaps):
-            if abs(gap) >= self.n_blobs - 1:
-                available_actions.append(Action(n_gap, -int(math.copysign(1, gap))))
-                continue
-            available_actions.append(Action(n_gap, +1))
-            available_actions.append(Action(n_gap, -1))
+
+        for n_rod in range(self.n_rods):
+            for direction in [-1, 1]:  # -1: contract, 1: expand
+                new_gaps = list(state.gaps)
+
+                for offset, sign in zip([-1, 0], [-1, 1]):
+                    idx = n_rod + offset
+                    if idx < 0 or idx >= len(new_gaps):
+                        continue
+                    new_gaps[idx] += direction * sign
+
+                # Vérifier si tous les gaps sont dans la limite autorisée
+                if all(abs(gap) <= self.n_blobs - 1 for gap in new_gaps):
+                    available_actions.append(Action(n_rod, direction))
         return available_actions
 
 
@@ -131,6 +141,22 @@ class DiatomEnv:
         positions = [list(map(float, line.split()[:3])) for line in pos_lines]
         return n, pos_lines, positions
 
+    @staticmethod
+    def freeze_expression(expr: str, t_value: float) -> str:
+        """
+        Remplace une expression du type 'k*t' ou '-k*t' par sa valeur évaluée à t_value.
+        Si l'expression est déjà constante (ex: '0', '1.2'), la retourne telle quelle.
+        """
+        expr = expr.strip()
+        if '*t' in expr:
+            coeff = expr.replace('*t', '')
+            try:
+                val = float(eval(coeff)) * t_value
+                return f"{val:.10f}"  # format propre
+            except Exception:
+                pass  # au cas où le parsing échoue
+        return expr
+
     def write_move_const(
             self,
             moving_rod: int,  # indice [0‥Nrods-1]
@@ -144,6 +170,12 @@ class DiatomEnv:
         """
 
         const_path = os.path.join(self.sim_dir, self.const_filename)
+        if os.path.exists(const_path):
+            with open(const_path, 'r') as f:
+                last_const = f.readlines()
+        else:
+            last_const = None  # Première écriture
+
         with open(const_path, "w") as fid:
             fid.write(f"{self.n_rods}\n")
             fid.write(f"{(self.n_rods - 1) * Nconst_per_rod}\n")
@@ -151,40 +183,66 @@ class DiatomEnv:
             sixzeros = '0 0 0 0 0 0'
 
             for n in range(self.n_rods - 1):
-                pos1z, pos2z = ' 0 ', ' 0 '
-                pos1y, pos2y = f"{self.a} ", f"{-self.a} "
-                vel1z = vel2z = vel1y = vel2y = ' 0 '
+                use_previous = last_const is not None and n != moving_rod and n + 1 != moving_rod
 
-                pos1x = pos2x = '0'
-                vel1x = vel2x = '0'
-                expression = self.a / (2 * self.dt) * direction
-                if n == moving_rod:
-                    pos1x = f"{expression}*t"
-                    pos2x = f"{-expression}*t"
-                    vel1x = f"{expression}"
-                    vel2x = f"{-expression}"
-                # elif n + 1 == moving_rod:
-                #     pos1x = f"{-expression}*t"
-                #     pos2x = f"{expression}*t"
-                #     vel1x = f"{-expression}"
-                #     vel2x = f"{expression}"
+                if use_previous:
+                    prev_line = last_const[n * Nconst_per_rod + 2]
+                    prev_parts = prev_line.strip().split()
 
+                    # Freeze any dynamic expression using t_prev
+                    pos1x = freeze_expression(prev_parts[3], t_prev)
+                    pos1z = prev_parts[4]
+                    pos1y = prev_parts[5]
+
+                    pos2x = freeze_expression(prev_parts[6], t_prev)
+                    pos2z = prev_parts[7]
+                    pos2y = prev_parts[8]
+
+                    vel1x = freeze_expression(prev_parts[9], t_prev)
+                    vel1z = prev_parts[10]
+                    vel1y = prev_parts[11]
+
+                    vel2x = freeze_expression(prev_parts[12], t_prev)
+                    vel2z = prev_parts[13]
+                    vel2y = prev_parts[14]
+                else:
+                    pos1z, pos2z = '0', '0'
+                    pos1y, pos2y = f"{self.a}", f"{-self.a}"
+                    vel1z = vel2z = vel1y = vel2y = '0'
+                    pos1x = pos2x = '0'
+                    vel1x = vel2x = '0'
+
+                    expression = self.a / (2 * self.dt) * direction
+
+                    if n == moving_rod:
+                        pos1x = f"{expression}*t"
+                        pos2x = f"{-expression}*t"
+                        vel1x = f"{expression}"
+                        vel2x = f"{-expression}"
+                    elif n + 1 == moving_rod:
+                        pos1x = f"{-expression}*t"
+                        pos2x = f"{expression}*t"
+                        vel1x = f"{-expression}"
+                        vel2x = f"{expression}"
+
+                # Première contrainte
                 c1 = (
                     f"{n} {n + 1} {sixzeros} "
-                    f"{pos1x} {pos1z}{pos1y}"
-                    f"{pos2x} {pos2z}{pos2y}"
-                    f"{vel1x} {vel1z}{vel1y}"
-                    f"{vel2x} {vel2z}{vel2y}"
+                    f"{pos1x} {pos1z} {pos1y} "
+                    f"{pos2x} {pos2z} {pos2y} "
+                    f"{vel1x} {vel1z} {vel1y} "
+                    f"{vel2x} {vel2z} {vel2y}"
                 )
                 fid.write(c1 + '\n')
 
+                # Deuxième contrainte (optionnelle)
                 if Nconst_per_rod >= 2:
                     c2 = (
                         f"{n} {n + 1} {sixzeros} "
-                        f"{1 + offset}*({pos1x}) {pos1z}{(1 + offset) * self.a} "
-                        f"{1 - offset}*({pos2x}) {pos2z}{(1 - offset) * -self.a} "
-                        f"{1 + offset}*({vel1x}) {vel1z}{vel1y} "
-                        f"{1 - offset}*({vel2x}) {vel2z}{vel2y}"
+                        f"{1 + offset}*({pos1x}) {pos1z} {(1 + offset) * self.a} "
+                        f"{1 - offset}*({pos2x}) {pos2z} {(1 - offset) * -self.a} "
+                        f"{1 + offset}*({vel1x}) {vel1z} {vel1y} "
+                        f"{1 - offset}*({vel2x}) {vel2z} {vel2y}"
                     )
                     fid.write(c2 + '\n')
 
@@ -346,8 +404,18 @@ class DiatomEnv:
         gaps = []
 
         for i in range(n_rods - 1):
-            delta_x = np.linalg.norm(pos[i + 1] - pos[i])
-            gap = int(round(delta_x / (4 * a))) # WEIRD TODO
+            p1, p2 = pos[i], pos[i + 1]
+            delta = p2 - p1
+
+            # Axe X local du bâtonnet i
+            axis_1 = quaternion_rotation_matrix(*quats[i])[:, 0]
+            axis_1 /= np.linalg.norm(axis_1)
+
+            axis_2 = quaternion_rotation_matrix(*quats[i+1])[:, 0]
+            axis_2 /= np.linalg.norm(axis_2)
+
+            gap_proj = (np.dot(delta, axis_1) + np.dot(-delta, axis_2)) * 0.5
+            gap = int(round(gap_proj / (2 * a)))
             gaps.append(gap)
 
         return ColonyState(tuple(gaps))
