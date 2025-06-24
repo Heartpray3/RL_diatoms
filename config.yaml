@@ -1,7 +1,7 @@
 input_file_path: "./inputfile_bacillaria.dat"
 output_directory: "./"
 Nblobs: 10
-Nrods: 3
+Nrods: 6
 dt: 0.0025
 Nstep: 10
 freq: 10

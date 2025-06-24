@@ -7,7 +7,6 @@ import os
 import math
 from typing import List
 
-
 from utils import get_sim_folder
 import numpy as np
 from itertools import combinations
@@ -39,9 +38,11 @@ class DiatomEnv:
         self.a = a
         self.dt = dt
         self.state = None
+        self._step = 0
         self.update_file = ''
         self.setup(input_file_path, output_dir, delete_folder=True)
         self.update_file = ''
+        self.const_pos = []
         self.reset(0)
 
     def get_available_actions(self, state: ColonyState):
@@ -62,7 +63,6 @@ class DiatomEnv:
                     available_actions.append(Action(n_rod, direction))
         return available_actions
 
-
     def step(self, action: Action):
         """
                 Exécute une étape avec une action donnée.
@@ -73,7 +73,7 @@ class DiatomEnv:
 
         self.write_move_const(
             moving_rod=rod_number,
-            direction=direction
+            direction=direction,
         )
 
         # Étape 3 : Lancer la simulation
@@ -93,11 +93,12 @@ class DiatomEnv:
         # Étape 4 : Lire la sortie
         get_sim_file = lambda prefix, suffix: os.path.join(
             str(self.sim_dir),
-           f"{prefix}bacillaria_{self.n_blobs}_blobs_{self.n_rods}_rods{suffix}")
+            f"{prefix}bacillaria_{self.n_blobs}_blobs_{self.n_rods}_rods{suffix}")
         new_coords_file = get_sim_file("run.", ".config")
         clone_file = get_sim_file("", ".clones")
         *_, positions = self.extract_last_infos(clone_file)
         last_cm = self.compute_center_of_mass(positions)
+
         try:
             n, pos_lines, positions = self.extract_last_infos(new_coords_file)
             with open(clone_file, 'w') as f2:
@@ -119,6 +120,7 @@ class DiatomEnv:
             new_gaps[idx] += direction * sign
         self.state = ColonyState(tuple(new_gaps))
 
+        self._step += 1
         return self.state, inst_vel
 
     @staticmethod
@@ -141,26 +143,10 @@ class DiatomEnv:
         positions = [list(map(float, line.split()[:3])) for line in pos_lines]
         return n, pos_lines, positions
 
-    @staticmethod
-    def freeze_expression(expr: str, t_value: float) -> str:
-        """
-        Remplace une expression du type 'k*t' ou '-k*t' par sa valeur évaluée à t_value.
-        Si l'expression est déjà constante (ex: '0', '1.2'), la retourne telle quelle.
-        """
-        expr = expr.strip()
-        if '*t' in expr:
-            coeff = expr.replace('*t', '')
-            try:
-                val = float(eval(coeff)) * t_value
-                return f"{val:.10f}"  # format propre
-            except Exception:
-                pass  # au cas où le parsing échoue
-        return expr
-
     def write_move_const(
             self,
-            moving_rod: int,  # indice [0‥Nrods-1]
-            direction: int,  # +1 ou -1
+            moving_rod: int,
+            direction: int,
             Nconst_per_rod: int = 2,
             offset: float = 0.1
     ) -> str:
@@ -170,92 +156,134 @@ class DiatomEnv:
         """
 
         const_path = os.path.join(self.sim_dir, self.const_filename)
-        if os.path.exists(const_path):
-            with open(const_path, 'r') as f:
-                last_const = f.readlines()
-        else:
-            last_const = None  # Première écriture
+        expression = self.a / (2 * self.dt) * direction
+        sixzeros = ['0'] * 6
+        constraints = {}
+        last_pos = list(map(self._safe_eval, self.const_pos))
 
-        with open(const_path, "w") as fid:
-            fid.write(f"{self.n_rods}\n")
-            fid.write(f"{(self.n_rods - 1) * Nconst_per_rod}\n")
+        for n in range(self.n_rods - 1):
+            i, j = n, n + 1
 
-            sixzeros = '0 0 0 0 0 0'
+            # Par défaut, tout est fixe sauf X
+            pos1y, pos1z = "0", f"{self.a}"
+            pos2y, pos2z = "0", f"{-self.a}"
+            vel1y = vel1z = vel2y = vel2z = "0"
 
-            for n in range(self.n_rods - 1):
-                use_previous = last_const is not None and n != moving_rod and n + 1 != moving_rod
+            # Init X
+            pos1x, pos2x = f"{last_pos[n]}", f"{-last_pos[n]}"
+            vel1x = vel2x = "0"
 
-                if use_previous:
-                    prev_line = last_const[n * Nconst_per_rod + 2]
-                    prev_parts = prev_line.strip().split()
 
-                    # Freeze any dynamic expression using t_prev
-                    pos1x = freeze_expression(prev_parts[3], t_prev)
-                    pos1z = prev_parts[4]
-                    pos1y = prev_parts[5]
+            # Si ce bâton est le mobile
+            if n == moving_rod:
+                pos1x = f"{expression}*t" + f"+{last_pos[n]}"
+                pos2x = f"{-expression}*t" + f"+{-last_pos[n]}"
+                vel1x = f"{expression}"
+                vel2x = f"{-expression}"
+                self.const_pos[n] = pos1x
+                # self.const_pos[n + self.n_rods - 1] = pos2x
+            elif n + 1 == moving_rod:
+                pos1x = f"{-expression}*t" + f"+{last_pos[n]}"
+                pos2x = f"{expression}*t" + f"+{-last_pos[n]}"
+                vel1x = f"{-expression}"
+                vel2x = f"{expression}"
+                self.const_pos[n] = pos1x
+                # self.const_pos[n + self.n_rods - 1] = pos2x
+            # Contrainte 1 (centrale)
+            raw_expr_1 = sixzeros + [
+                pos1x, pos1y, pos1z,
+                pos2x, pos2y, pos2z,
+                vel1x, vel1y, vel1z,
+                vel2x, vel2y, vel2z
+            ]
+            constraints[(i, j)] = {"raw_expr": raw_expr_1}
 
-                    pos2x = freeze_expression(prev_parts[6], t_prev)
-                    pos2z = prev_parts[7]
-                    pos2y = prev_parts[8]
+            # Contrainte 2 (offset)
+            if Nconst_per_rod >= 2:
+                pos1_off = [f"{1 + offset}*({pos1x})", pos1y, f"{(1 + offset)* self.a}"]
+                pos2_off = [f"{1 - offset}*({pos2x})", pos2y, f"{(1 - offset)* -self.a}"]
+                vel1_off = [f"{1 + offset}*({vel1x})", vel1y, vel1z]
+                vel2_off = [f"{1 - offset}*({vel2x})", vel2y, vel2z]
 
-                    vel1x = freeze_expression(prev_parts[9], t_prev)
-                    vel1z = prev_parts[10]
-                    vel1y = prev_parts[11]
+                raw_expr_2 = sixzeros + pos1_off + pos2_off + vel1_off + vel2_off
+                constraints[(i, j, "offset")] = {"raw_expr": raw_expr_2}
 
-                    vel2x = freeze_expression(prev_parts[12], t_prev)
-                    vel2z = prev_parts[13]
-                    vel2y = prev_parts[14]
-                else:
-                    pos1z, pos2z = '0', '0'
-                    pos1y, pos2y = f"{self.a}", f"{-self.a}"
-                    vel1z = vel2z = vel1y = vel2y = '0'
-                    pos1x = pos2x = '0'
-                    vel1x = vel2x = '0'
+        # Structure finale
+        data_out = {
+            "n_rods": self.n_rods,
+            "n_constraints": len(constraints),
+            "constraints": constraints
+        }
 
-                    expression = self.a / (2 * self.dt) * direction
-
-                    if n == moving_rod:
-                        pos1x = f"{expression}*t"
-                        pos2x = f"{-expression}*t"
-                        vel1x = f"{expression}"
-                        vel2x = f"{-expression}"
-                    elif n + 1 == moving_rod:
-                        pos1x = f"{-expression}*t"
-                        pos2x = f"{expression}*t"
-                        vel1x = f"{-expression}"
-                        vel2x = f"{expression}"
-
-                # Première contrainte
-                c1 = (
-                    f"{n} {n + 1} {sixzeros} "
-                    f"{pos1x} {pos1z} {pos1y} "
-                    f"{pos2x} {pos2z} {pos2y} "
-                    f"{vel1x} {vel1z} {vel1y} "
-                    f"{vel2x} {vel2z} {vel2y}"
-                )
-                fid.write(c1 + '\n')
-
-                # Deuxième contrainte (optionnelle)
-                if Nconst_per_rod >= 2:
-                    c2 = (
-                        f"{n} {n + 1} {sixzeros} "
-                        f"{1 + offset}*({pos1x}) {pos1z} {(1 + offset) * self.a} "
-                        f"{1 - offset}*({pos2x}) {pos2z} {(1 - offset) * -self.a} "
-                        f"{1 + offset}*({vel1x}) {vel1z} {vel1y} "
-                        f"{1 - offset}*({vel2x}) {vel2z} {vel2y}"
-                    )
-                    fid.write(c2 + '\n')
-
+        # Écriture via fonction dédiée
+        self.write_constraints_file(data_out, const_path)
         return const_path
 
+    def _safe_eval(self, expr):
+        """Convert numerical string or keep expressions like '1.1*(0)' or '3*t'."""
+        try:
+            # Try evaluating basic constants
+            return eval(expr, {"__builtins__": None}, {"t": self.dt})  # dummy eval to allow 't'
+        except:
+            return expr
+
+    def write_constraints_file(self, data, path):
+        with open(path, "w") as f:
+            f.write(f"{data['n_rods']}\n")
+            f.write(f"{data['n_constraints']}\n")
+
+            for key, constraint in data["constraints"].items():
+                i, j = key[0], key[1]
+                raw_expr = constraint["raw_expr"]
+
+                if len(raw_expr) != 18:
+                    raise ValueError(f"raw_expr for constraint {key} does not have 20 elements")
+
+                line = f"{i} {j} " + " ".join(raw_expr)
+                f.write(line + "\n")
+
+    # def parse_constraints_file(self, filepath):
+    #     with open(filepath, "r") as f:
+    #         lines = f.readlines()
+    #
+    #     n_rods = int(lines[0])
+    #     n_constraints = int(lines[1])
+    #     constraint_lines = lines[2:]
+    #
+    #     constraints = {}
+    #
+    #     for line in constraint_lines:
+    #         parts = line.strip().split()
+    #         if len(parts) != 20:
+    #             raise ValueError(f"Line does not have 20 elements: {line}")
+    #
+    #         i, j = int(parts[0]), int(parts[1])
+    #         data = {
+    #             "params": list(map(self._safe_eval, parts[2:])),
+    #             "raw_expr": parts[2:]  # for preserving expressions if needed
+    #         }
+    #         if constraints.get((i, j)):
+    #             constraints[(i, j, "off")] = data
+    #         else:
+    #             constraints[(i, j)] = data
+    #
+    #     return {
+    #         "n_rods": n_rods,
+    #         "n_constraints": n_constraints,
+    #         "constraints": constraints
+    #     }
+
     def reset(self, episode_nb: int) -> ColonyState:
-        self.state = ColonyState((0,)*(self.n_rods - 1))
-        self.update_file = f'step_{episode_nb}_update_'
-        self.setup(self.input_parm, self.output_param, delete_folder=False)
-        return self.state
+            self._step = 0
+            self.state = ColonyState((0,) * (self.n_rods - 1))
+            self.update_file = f'step_{episode_nb}_update_'
+            self.setup(self.input_parm, self.output_param, delete_folder=False)
+            self.const_pos = []
+            for n in range(self.n_rods - 1):
+                self.const_pos.append('0')
+            return self.state
 
     def setup(self, input_file_path, output_dir, delete_folder=True):
-        # %% Code Generate_const_clone_list_vertex_file_and_execute_Blobs
         X_coef = 7.4209799e-02
         X_step = 2 * X_coef
 
@@ -264,13 +292,9 @@ class DiatomEnv:
 
         suffix_nrods = str(self.n_blobs) + '_blobs_'
         filename1 = root_name + suffix_nrods
-        # L_rods = self.n_blobs * 0.81 * a
-        # L = 0.5 * 0.9 * L_rods
 
         suffix_nrods = str(self.n_rods) + '_rods'
         filename = filename1 + suffix_nrods
-
-        foldername = filename  # + suffix_phase_shift #+ suffix_fourier
 
         self.sim_dir = get_sim_folder(output_dir, self.n_rods, self.n_blobs)
         if os.path.exists(self.sim_dir):
@@ -287,7 +311,6 @@ class DiatomEnv:
         else:
             os.makedirs(self.sim_dir)
 
-        ## Generate clones files
         filename_clones = filename + '.clones'
 
         pos = np.zeros((self.n_rods, 3))
@@ -313,18 +336,14 @@ class DiatomEnv:
         np.savetxt(fid, to_save)
         fid.close()
 
-        ## Generate Vertex files
-        with open(os.path.join(output_dir, f"{self.n_blobs}_Blobs", root_name + str(self.n_blobs) + '_blobs.vertex'),
-                  "w") as f:
+        with open(os.path.join(output_dir, f"{self.n_blobs}_Blobs", root_name + str(self.n_blobs) + '_blobs.vertex'), "w") as f:
             f.write(str(self.n_blobs) + "\n")
             Start = -((self.n_blobs / 2 - 1) * X_step + X_coef)
             for i in range(self.n_blobs):
                 X = Start + i * X_step
                 f.write("{:.7e} {:.7e} {:.7e}\n".format(X, 0, 0))
 
-        ## Generate list vertex files
         filename_vertex = root_name + str(self.n_blobs) + '_blobs.vertex'
-
         filename_list_vertex = filename + '.list_vertex'
         fid = open(os.path.join(self.sim_dir, filename_list_vertex), 'w')
 
@@ -332,26 +351,18 @@ class DiatomEnv:
             fid.write(os.path.join(output_dir, f"{self.n_blobs}_Blobs", filename_vertex) + '\n')
         fid.close()
 
-        ## Constraints
         self.const_filename = filename + '.const'
-
         filename_input = 'inputfile_bacillaria'
-        # input_path = os.path.join(input_file_path, filename_input + '.dat')
 
-        # Valeurs à mettre à jour
         updates = {
             'dt': [str(self.dt)],
-            'n_steps': [str(1)],  # RL feedback
+            'n_steps': [str(1)],
             'output_name': ['run'],
             'articulated': [filename_list_vertex, filename_clones, self.const_filename]
         }
 
-        # Chemin de sortie
         self.input_file_sim_path = os.path.join(self.sim_dir, f"{filename_input}_{suffix_nrods}.dat")
-
-        # Écriture du nouveau fichier .dat
         self.update_dat(input_file_path, self.input_file_sim_path, updates)
-        # return self.input_file_sim
 
     @staticmethod
     def update_dat(input_file, output_file, updates):
@@ -368,15 +379,10 @@ class DiatomEnv:
                 f.write(f"{key.ljust(max_len + 1)}{' '.join(new_vals)}\n")
 
     def physical_colony_state(self) -> ColonyState:
-        """
-        Lit un fichier .clones ou .config et reconstruit le ColonyState.
-        """
         get_sim_file = lambda prefix, suffix: os.path.join(
             str(self.sim_dir),
             f"{prefix}bacillaria_{self.n_blobs}_blobs_{self.n_rods}_rods{suffix}")
-        # new_coords_file = get_sim_file("run.", ".config")
         clone_file = get_sim_file("", ".clones")
-        # *_, positions = self.extract_last_infos(clone_file)
         with open(clone_file, 'r') as f:
             lines = f.readlines()
 
@@ -394,12 +400,8 @@ class DiatomEnv:
 
         return self.infer_colony_state_from_positions(pos, quats, self.a)
 
-    @staticmethod # not tested, todo: test it
+    @staticmethod
     def infer_colony_state_from_positions(pos: np.ndarray, quats: np.ndarray, a: float) -> ColonyState:
-        """
-        Reconstitue le ColonyState (les gaps) à partir des positions et orientations (quaternions).
-        Utilise une moyenne d'orientation pour chaque paire de bâtonnets.
-        """
         n_rods = len(pos)
         gaps = []
 
@@ -407,11 +409,10 @@ class DiatomEnv:
             p1, p2 = pos[i], pos[i + 1]
             delta = p2 - p1
 
-            # Axe X local du bâtonnet i
             axis_1 = quaternion_rotation_matrix(*quats[i])[:, 0]
             axis_1 /= np.linalg.norm(axis_1)
 
-            axis_2 = quaternion_rotation_matrix(*quats[i+1])[:, 0]
+            axis_2 = quaternion_rotation_matrix(*quats[i + 1])[:, 0]
             axis_2 /= np.linalg.norm(axis_2)
 
             gap_proj = (np.dot(delta, axis_1) + np.dot(-delta, axis_2)) * 0.5
@@ -421,36 +422,18 @@ class DiatomEnv:
         return ColonyState(tuple(gaps))
 
 def quaternion_rotation_matrix(q0, q1, q2, q3):
-    """
-    Covert a quaternion into a full three-dimensional rotation matrix.
-
-    Input
-    q0,q1,q2,q3
-
-    Output
-    :return: A 3x3 element matrix representing the full 3D rotation matrix.
-             This rotation matrix converts a point in the local reference
-             frame to a point in the global reference frame.
-    """
-
-    # First row of the rotation matrix
     r00 = 2 * (q0 * q0 + q1 * q1) - 1
     r01 = 2 * (q1 * q2 - q0 * q3)
     r02 = 2 * (q1 * q3 + q0 * q2)
 
-    # Second row of the rotation matrix
     r10 = 2 * (q1 * q2 + q0 * q3)
     r11 = 2 * (q0 * q0 + q2 * q2) - 1
     r12 = 2 * (q2 * q3 - q0 * q1)
 
-    # Third row of the rotation matrix
     r20 = 2 * (q1 * q3 - q0 * q2)
     r21 = 2 * (q2 * q3 + q0 * q1)
     r22 = 2 * (q0 * q0 + q3 * q3) - 1
 
-    # 3x3 rotation matrix
-    rot_matrix = np.array([[r00, r01, r02],
-                           [r10, r11, r12],
-                           [r20, r21, r22]])
-
-    return rot_matrix
+    return np.array([[r00, r01, r02],
+                     [r10, r11, r12],
+                     [r20, r21, r22]])
