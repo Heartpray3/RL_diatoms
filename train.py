@@ -12,6 +12,7 @@ Code d'apprentissage par renforcement & simulation (Q-learning)
 
 from __future__ import division, print_function
 import argparse
+import os
 import random
 import pickle
 from collections import defaultdict
@@ -68,27 +69,46 @@ def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep):
         dt=dt,
         a=a
     )
-    # infos = []
-    # num_state = []
-    # for i in range(11):
-    #     num_state.append(env.state)
-    #     phys_state = env.physical_colony_state()
-    #     if env.state != phys_state:
-    #         infos.append(f"Attention step {i} les states sont differents: phys {phys_state}, num {env.state}")
-    #     env.step(Action(i % Nrods, +1))
-    # print(infos)
-    # print(num_state)
-    # return ()
+    infos = []
+    num_state = []
+    env.reset(0)
+    random.seed(42)
+    test = [random.randint(0, Nrods - 1) for _ in range(Nstep)]
+    for i in range(Nstep):
+        num_state.append(env.state)
+        phys_state = env.physical_colony_state()
+        if env.state != phys_state:
+            infos.append(f"Attention step {i} les states sont differents: phys {phys_state}, num {env.state}")
+        env.step(Action(test[i], -1))
+    print(infos)
+    print(num_state)
+    print(test)
+    return ()
 
     # Lancer l'apprentissage Q-learning
-    episodes = 1000
+    episodes = 10
     steps_per_episode = 40
     Q = q_learning(env, episodes=episodes, steps_per_episode=steps_per_episode)
 
     # Sauvegarder la table Q
-    with open(f'q_table_{Nblobs}_blobs_{Nrods}_rods_{episodes}_ep_{steps_per_episode}_steps.pkl', 'wb') as f:
+    base_filename = os.path.join(
+        output_directory,
+        'q_tables',
+        f'q_table_{Nblobs}_blobs_{Nrods}_rods_{episodes}_ep_{steps_per_episode}_steps'
+    )
+
+    # Ajout d'une version si nécessaire
+    version = 0
+    final_filename = f"{base_filename}_v{version}.pkl"
+    while os.path.exists(final_filename):
+        version += 1
+        final_filename = f"{base_filename}_v{version}.pkl"
+
+    # Sauvegarde de la Q-table
+    with open(final_filename, 'wb') as f:
         pickle.dump(dict(Q), f)
-    print("Q-table sauvegardée dans q_table.pkl")
+
+    print(f"Q-table sauvegardée dans {final_filename}")
 
 
 # validate_policy(env, Q, episodes=3)
