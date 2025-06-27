@@ -33,8 +33,8 @@ def main(config_path: str, q_table_path: str, num_episodes: int):
     env = DiatomEnv(
         input_file_path=config.input_file_path,
         output_dir=config.output_directory,
-        n_rods=config.Nrods,
-        n_blobs=config.Nblobs,
+        n_rods=config.nb_rods,
+        n_blobs=config.nb_blobs,
         dt=config.dt,
         a=0.183228708092682
     )
