@@ -20,7 +20,7 @@ from sim_env import DiatomEnv, Action
 from validate import validate_policy
 
 
-def q_learning(env: DiatomEnv, episodes=1000, steps_per_episode=200, alpha=0.1, gamma=0.95, epsilon=0.1):
+def q_learning(env: DiatomEnv, episodes, steps_per_episode, alpha=0.1, gamma=0.95, epsilon=0.1, lookahead_steps=1):
     Q = defaultdict(float)
 
     for ep in range(episodes):
@@ -58,43 +58,32 @@ def q_learning(env: DiatomEnv, episodes=1000, steps_per_episode=200, alpha=0.1, 
     return Q
 
 
-def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep):
+def main(input_file_path, output_directory, nb_blobs, nb_rods, dt, nb_step, nb_episodes, learning_rate, discount_factor, steps_ahead):
     a = 0.183228708092682  # blob radius
     # Initialiser l’environnement
     env = DiatomEnv(
-        input_file_path=input_directory,
+        input_file_path=input_file_path,
         output_dir=output_directory,
-        n_rods=Nrods,
-        n_blobs=Nblobs,
+        n_rods=nb_rods,
+        n_blobs=nb_blobs,
         dt=dt,
         a=a
     )
-    infos = []
-    num_state = []
-    env.reset(0)
-    random.seed(42)
-    test = [random.randint(0, Nrods - 1) for _ in range(Nstep)]
-    for i in range(Nstep):
-        num_state.append(env.state)
-        phys_state = env.physical_colony_state()
-        if env.state != phys_state:
-            infos.append(f"Attention step {i} les states sont differents: phys {phys_state}, num {env.state}")
-        env.step(Action(test[i], -1))
-    print(infos)
-    print(num_state)
-    print(test)
-    return ()
 
     # Lancer l'apprentissage Q-learning
-    episodes = 10
-    steps_per_episode = 40
-    Q = q_learning(env, episodes=episodes, steps_per_episode=steps_per_episode)
+    # episodes = 1000
+    # steps_per_episode = 40
+    Q = q_learning(env, episodes=nb_episodes,
+                    steps_per_episode=nb_step,
+                   alpha=learning_rate,
+                   gamma=discount_factor,
+                   )
 
     # Sauvegarder la table Q
     base_filename = os.path.join(
         output_directory,
         'q_tables',
-        f'q_table_{Nblobs}_blobs_{Nrods}_rods_{episodes}_ep_{steps_per_episode}_steps'
+        f'q_table_{nb_blobs}_blobs_{nb_rods}_rods_{nb_episodes}_ep_{nb_step}_steps_{discount_factor}_g_{learning_rate}_lr'
     )
 
     # Ajout d'une version si nécessaire
@@ -110,22 +99,32 @@ def main(input_directory, output_directory, Nblobs, Nrods, dt, Nstep):
 
     print(f"Q-table sauvegardée dans {final_filename}")
 
-
-# validate_policy(env, Q, episodes=3)
-
-
 if __name__ == "__main__":
 
     # test
-    parser = argparse.ArgumentParser(description="Traite des fichiers avec optimisation d'efficacité.")
-    parser.add_argument("--input_directory", type=str, required=True, help= "Fichier de d'entree")
-    parser.add_argument("--output_directory", type=str, required=True, help= "Fichier de sortie")
-    parser.add_argument("--Nblobs", type=int, required=True, help="Nombre de blobs")
-    parser.add_argument("--Nrods", type=int, required=True, help="Nombre de rods")
-    parser.add_argument("--dt", type=float, default= 0.00125, help = "Timestep")
-    parser.add_argument("--Nstep", type=int, default = 160, help = "Nombre d'étapes")
-    parser.add_argument("--freq", type=float, default = 10, help = "fréquence du sinus dans le coulissement")
-    
+    parser = argparse.ArgumentParser(description="Apprentissage par renforcement.")
+    parser.add_argument("--input_file_path", type=str, required=True, help="Chemin du fichier d'entrée (.dat)")
+    parser.add_argument("--output_directory", type=str, required=True, help="Répertoire de sortie")
+    parser.add_argument("--nb_blobs", type=int, required=True, help="Nombre de blobs")
+    parser.add_argument("--nb_rods", type=int, required=True, help="Nombre de rods")
+    parser.add_argument("--dt", type=float, default=0.0025, help="Pas de temps")
+    parser.add_argument("--nb_step", type=int, default=41, help="Nombre d'étapes par épisode")
+    parser.add_argument("--nb_episodes", type=int, default=1000, help="Nombre total d'épisodes")
+    parser.add_argument("--learning_rate", type=float, default=0.1, help="Taux d'apprentissage (alpha)")
+    parser.add_argument("--discount_factor", type=float, default=0.6, help="Facteur de réduction (gamma)")
+    parser.add_argument("--steps_ahead", type=int, default=1, help="Nombre d'étapes futures prises en compte (n-step TD)")
+
     args = parser.parse_args()
-    
-    main(args.input_directory, args.output_directory, args.Nblobs, args.Nrods, args.dt, args.Nstep)
+
+    main(
+        input_file_path=args.input_file_path,
+        output_directory=args.output_directory,
+        nb_blobs=args.nb_blobs,
+        nb_rods=args.nb_rods,
+        dt=args.dt,
+        nb_step=args.nb_step,
+        nb_episodes=args.nb_episodes,
+        learning_rate=args.learning_rate,
+        discount_factor=args.discount_factor,
+        steps_ahead=args.steps_ahead
+    )
