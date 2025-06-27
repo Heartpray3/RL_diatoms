@@ -16,18 +16,27 @@ import os
 import random
 import pickle
 from collections import defaultdict
-from sim_env import DiatomEnv, Action
-from validate import validate_policy
+from sim_env import DiatomEnv, RewardMethod
+from utils import Config, abs_path
 
 
-def q_learning(env: DiatomEnv, episodes, steps_per_episode, alpha, gamma, epsilon=0.1, lookahead_steps=1):
+def q_learning(env: DiatomEnv,
+               episodes,
+               steps_per_episode,
+               alpha,
+               gamma,
+               reward_method: RewardMethod,
+               epsilon=0.1,
+               lookahead_steps=1,
+               reward_angle=None
+               ):
     Q = defaultdict(float)
 
     for ep in range(episodes):
         state = env.reset(ep)
         total_reward = 0
 
-        for step in range(steps_per_episode):  # max steps per episode
+        for step in range(steps_per_episode - 1):  # max steps per episode
             actions = env.get_available_actions(state)
 
             # ε-greedy policy
@@ -39,10 +48,10 @@ def q_learning(env: DiatomEnv, episodes, steps_per_episode, alpha, gamma, epsilo
                 best_actions = [a for a in actions if Q[(state, a)] == max_q]
                 action = random.choice(best_actions)
 
-            next_state, inst_vel = env.step(action)
+            next_state, last_pos, new_pos = env.step(action)
 
             # reward = norme de la vitesse
-            reward = sum(v**2 for v in inst_vel)**0.5
+            reward = env.compute_reward(last_pos, new_pos, reward_method, reward_angle)
 
             # Q-learning update
             next_actions = env.get_available_actions(next_state)
@@ -58,45 +67,48 @@ def q_learning(env: DiatomEnv, episodes, steps_per_episode, alpha, gamma, epsilo
     return Q
 
 
-def main(input_file_path, output_directory, nb_blobs, nb_rods, dt, nb_step, nb_episodes, learning_rate, discount_factor, steps_ahead):
+def main(config: Config):
     a = 0.183228708092682  # blob radius
+
     # Initialiser l’environnement
     env = DiatomEnv(
-        input_file_path=input_file_path,
-        output_dir=output_directory,
-        n_rods=nb_rods,
-        n_blobs=nb_blobs,
-        dt=dt,
+        input_file_path=config.input_file_path,
+        output_dir=config.output_directory,
+        n_rods=config.nb_rods,
+        n_blobs=config.nb_blobs,
+        dt=config.dt,
         a=a
     )
 
     # Lancer l'apprentissage Q-learning
-    # episodes = 1000
-    # steps_per_episode = 40
+    reward_angle = config.reward_angle if config.reward_method == RewardMethod.FORWARD_PROGRESS else 0.0
     Q = q_learning(
         env,
-        episodes=nb_episodes,
-        steps_per_episode=nb_step,
-        alpha=learning_rate,
-        gamma=discount_factor,
-
+        episodes=config.nb_episodes,
+        steps_per_episode=config.nb_step,
+        alpha=config.learning_rate,
+        gamma=config.discount_factor,
+        reward_method=config.reward_method,
+        reward_angle=reward_angle,
     )
 
-    # Sauvegarder la table Q
+    # Construire le nom de base
     base_filename = os.path.join(
-        output_directory,
+        config.output_directory,
         'q_tables',
-        f'q_table_{nb_blobs}_blobs_{nb_rods}_rods_{nb_episodes}_ep_{nb_step}_steps_{discount_factor}_g_{learning_rate}_lr'
+        f'q_table_{config.nb_blobs}_blobs_{config.nb_rods}_rods_{config.nb_episodes}_ep_{config.nb_step}_steps_{config.discount_factor}_g_{config.learning_rate}_lr'
     )
 
-    # Ajout d'une version si nécessaire
+    # Créer un nom de fichier unique avec versioning
     version = 0
     final_filename = f"{base_filename}_v{version}.pkl"
     while os.path.exists(final_filename):
         version += 1
         final_filename = f"{base_filename}_v{version}.pkl"
 
-    # Sauvegarde de la Q-table
+    os.makedirs(os.path.dirname(final_filename), exist_ok=True)
+
+    # Sauvegarder la Q-table
     with open(final_filename, 'wb') as f:
         pickle.dump(dict(Q), f)
 
@@ -106,22 +118,24 @@ if __name__ == "__main__":
 
     # test
     parser = argparse.ArgumentParser(description="Apprentissage par renforcement.")
-    parser.add_argument("--input_file_path", type=str, required=True, help="Chemin du fichier d'entrée (.dat)")
-    parser.add_argument("--output_directory", type=str, required=True, help="Répertoire de sortie")
-    parser.add_argument("--nb_blobs", type=int, required=True, help="Nombre de blobs")
-    parser.add_argument("--nb_rods", type=int, required=True, help="Nombre de rods")
-    parser.add_argument("--dt", type=float, default=0.0025, help="Pas de temps")
-    parser.add_argument("--nb_step", type=int, default=41, help="Nombre d'étapes par épisode")
-    parser.add_argument("--nb_episodes", type=int, default=1000, help="Nombre total d'épisodes")
-    parser.add_argument("--learning_rate", type=float, default=0.1, help="Taux d'apprentissage (alpha)")
-    parser.add_argument("--discount_factor", type=float, default=0.6, help="Facteur de réduction (gamma)")
-    parser.add_argument("--steps_ahead", type=int, default=1, help="Nombre d'étapes futures prises en compte (n-step TD)")
+    parser.add_argument("--input_file_path", type=str, required=True)
+    parser.add_argument("--output_directory", type=str, required=True)
+    parser.add_argument("--nb_blobs", type=int, required=True)
+    parser.add_argument("--nb_rods", type=int, required=True)
+    parser.add_argument("--dt", type=float, default=0.00125)
+    parser.add_argument("--nb_step", type=int, default=100)
+    parser.add_argument("--nb_episodes", type=int, default=1000)
+    parser.add_argument("--learning_rate", type=float, default=0.1)
+    parser.add_argument("--discount_factor", type=float, default=0.95)
+    parser.add_argument("--lookahead_steps", type=int, default=1)
+    parser.add_argument("--reward_method", type=str, default="VELOCITY")
+    parser.add_argument("--progression_angle", type=float, default=None)
 
     args = parser.parse_args()
 
-    main(
-        input_file_path=args.input_file_path,
-        output_directory=args.output_directory,
+    config = Config(
+        input_file_path=abs_path(args.input_file_path),
+        output_directory=abs_path(args.output_directory),
         nb_blobs=args.nb_blobs,
         nb_rods=args.nb_rods,
         dt=args.dt,
@@ -129,5 +143,9 @@ if __name__ == "__main__":
         nb_episodes=args.nb_episodes,
         learning_rate=args.learning_rate,
         discount_factor=args.discount_factor,
-        steps_ahead=args.steps_ahead
+        lookahead_steps=args.lookahead_steps,
+        reward_method=RewardMethod[args.reward_method.upper()],
+        reward_angle=args.progression_angle
     )
+
+    main(config)

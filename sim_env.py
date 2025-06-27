@@ -7,9 +7,9 @@ import os
 import math
 from typing import List
 
-from utils import get_sim_folder
+from utils import get_sim_folder, RewardMethod
 import numpy as np
-from itertools import combinations
+
 
 @dataclass(frozen=True)
 class ColonyState:
@@ -41,6 +41,7 @@ class DiatomEnv:
         self._step = 0
         self.update_file = ''
         self.setup(input_file_path, output_dir, delete_folder=True)
+        self.initial_cm = None
         self.update_file = ''
         self.const_pos = []
         self.reset(0)
@@ -77,10 +78,11 @@ class DiatomEnv:
         )
 
         # Étape 3 : Lancer la simulation
+        SIM_SCRIPT_PATH = (Path(__file__).parent / "multi_bodies_bacillaria1.py").resolve()
         subprocess.run(
             [
             "python3",
-            "../../../multi_bodies_bacillaria1.py",
+            str(SIM_SCRIPT_PATH),
             "--input-file",
             self.input_file_sim_path,
             # "--print-residual",
@@ -96,20 +98,16 @@ class DiatomEnv:
             f"{prefix}bacillaria_{self.n_blobs}_blobs_{self.n_rods}_rods{suffix}")
         new_coords_file = get_sim_file("run.", ".config")
         clone_file = get_sim_file("", ".clones")
-        *_, positions = self.extract_last_infos(clone_file)
-        last_cm = self.compute_center_of_mass(positions)
-
+        *_, last_positions = self.extract_last_infos(clone_file)
+        n, pos_lines, new_positions = self.extract_last_infos(new_coords_file)
         try:
-            n, pos_lines, positions = self.extract_last_infos(new_coords_file)
             with open(clone_file, 'w') as f2:
                 f2.writelines([n] + pos_lines)
             with open(self.update_file, 'a') as f3:
                 f3.writelines([n] + pos_lines)
-            new_cm = self.compute_center_of_mass(positions)
-            inst_vel = [(c1 - c2)/self.dt for c1, c2 in zip(new_cm, last_cm)]
         except (FileNotFoundError, ValueError) as e:
-            inst_vel = [0] * 3
-            print(f"Attention, 0 velocity: \n\t{e}")
+            new_positions = last_positions
+            print(f"Attention, didn't write or append in step {self._step}: \n\t{e}")
 
         # Étape 6 : Mettre à jour l'état
         new_gaps = list(self.state.gaps)
@@ -121,7 +119,42 @@ class DiatomEnv:
         self.state = ColonyState(tuple(new_gaps))
 
         self._step += 1
-        return self.state, inst_vel
+        return self.state, last_positions, new_positions
+
+    def compute_reward(self, pos_before, pos_after, method: RewardMethod, angle=None):
+        cm1 = self.compute_center_of_mass(pos_before)
+        cm2 = self.compute_center_of_mass(pos_after)
+        delta_cm = np.array(cm2) - np.array(cm1)
+
+        match method:
+            case RewardMethod.VELOCITY:
+                vel = [(c2 - c1) / self.dt for c1, c2 in zip(cm1, cm2)]
+                return float(np.linalg.norm(vel))
+
+            case RewardMethod.CM_DISTANCE:
+                return float(np.linalg.norm(np.array(cm2) - np.array(cm1)))
+
+            case RewardMethod.X_DISPLACEMENT:
+                return float(cm2[0] - cm1[0])
+
+            case RewardMethod.CIRCULAR_ZONES:
+                if self.initial_cm is None:
+                    self.initial_cm = cm1
+                dist = float(np.linalg.norm(np.array(cm2) - np.array(self.initial_cm)))
+                return int(dist // 10) - 1  # palier de 10
+
+            case RewardMethod.FORWARD_PROGRESS:
+                if angle is None:
+                    raise ValueError("ANGLE IS REQUIRED FOR THIS METHOD")
+
+                direction = np.array([math.cos(angle), 0, math.sin(angle)])
+                direction /= np.linalg.norm(direction)
+
+                reward = np.dot(delta_cm, direction)
+                return float(reward)
+
+            case _:
+                raise ValueError("Méthode de reward inconnue")
 
     @staticmethod
     def compute_center_of_mass(positions: List[List[float]]) -> List[float]:
@@ -247,6 +280,7 @@ class DiatomEnv:
             self.state = ColonyState((0,) * (self.n_rods - 1))
             self.update_file = f'step_{episode_nb}_update_'
             self.setup(self.input_parm, self.output_param, delete_folder=False)
+            self.initial_cm = None
             self.const_pos = []
             for n in range(self.n_rods - 1):
                 self.const_pos.append('0')
