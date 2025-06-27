@@ -3,6 +3,15 @@ from dataclasses import dataclass
 from pathlib import Path
 import os
 
+from enum import Enum, auto
+
+class RewardMethod(Enum):
+    VELOCITY = "VELOCITY"
+    CM_DISTANCE = "CM_DISTANCE"
+    X_DISPLACEMENT = "X_DISPLACEMENT"
+    CIRCULAR_ZONES = "CIRCULAR_ZONES"
+    FORWARD_PROGRESS = "FORWARD_PROGRESS"
+
 @dataclass
 class Config:
     input_file_path: str
@@ -15,13 +24,19 @@ class Config:
     learning_rate: float
     discount_factor: float
     lookahead_steps: int
+    reward_method: RewardMethod
+    reward_angle: float
+
 
 def load_config(path="config.yaml") -> Config:
     with open(path, 'r') as file:
-        config = Config(**yaml.safe_load(file))
-        config.input_file_path = abs_path(config.input_file_path)
-        config.output_directory = abs_path(config.output_directory)
-    return config
+        raw = yaml.safe_load(file)
+
+    raw['input_file_path'] = abs_path(raw['input_file_path'])
+    raw['output_directory'] = abs_path(raw['output_directory'])
+    raw['reward_method'] = RewardMethod[raw['reward_method'].upper()]
+
+    return Config(**raw)
 
 def abs_path(directory: str) -> str:
     script_dir = Path(__file__).parent.resolve()
