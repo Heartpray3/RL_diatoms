@@ -7,8 +7,12 @@ if __name__ == '__main__':
     main(
         config.input_file_path,
         config.output_directory,
-        config.Nblobs,
-        config.Nrods,
+        config.nb_blobs,
+        config.nb_rods,
         config.dt,
-        config.Nstep,
+        config.nb_step,
+        config.nb_episodes,
+        config.learning_rate,
+        config.discount_factor,
+        config.lookahead_steps
     )
