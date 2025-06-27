@@ -65,9 +65,9 @@ class DiatomEnv:
 
     def step(self, action: Action):
         """
-                Exécute une étape avec une action donnée.
-                Retourne : next_state, reward, done
-                """
+            Exécute une étape avec une action donnée.
+            Retourne : next_state, reward, done
+        """
         rod_number = action.n_rod
         direction = action.direction
 
@@ -242,37 +242,6 @@ class DiatomEnv:
                 line = f"{i} {j} " + " ".join(raw_expr)
                 f.write(line + "\n")
 
-    # def parse_constraints_file(self, filepath):
-    #     with open(filepath, "r") as f:
-    #         lines = f.readlines()
-    #
-    #     n_rods = int(lines[0])
-    #     n_constraints = int(lines[1])
-    #     constraint_lines = lines[2:]
-    #
-    #     constraints = {}
-    #
-    #     for line in constraint_lines:
-    #         parts = line.strip().split()
-    #         if len(parts) != 20:
-    #             raise ValueError(f"Line does not have 20 elements: {line}")
-    #
-    #         i, j = int(parts[0]), int(parts[1])
-    #         data = {
-    #             "params": list(map(self._safe_eval, parts[2:])),
-    #             "raw_expr": parts[2:]  # for preserving expressions if needed
-    #         }
-    #         if constraints.get((i, j)):
-    #             constraints[(i, j, "off")] = data
-    #         else:
-    #             constraints[(i, j)] = data
-    #
-    #     return {
-    #         "n_rods": n_rods,
-    #         "n_constraints": n_constraints,
-    #         "constraints": constraints
-    #     }
-
     def reset(self, episode_nb: int) -> ColonyState:
             self._step = 0
             self.state = ColonyState((0,) * (self.n_rods - 1))
@@ -287,7 +256,6 @@ class DiatomEnv:
         X_coef = 7.4209799e-02
         X_step = 2 * X_coef
 
-        Nconst_per_rod = 2
         root_name = 'bacillaria_'
 
         suffix_nrods = str(self.n_blobs) + '_blobs_'
