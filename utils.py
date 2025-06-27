@@ -7,12 +7,14 @@ import os
 class Config:
     input_file_path: str
     output_directory: str
-    Nblobs: int
-    Nrods: int
+    nb_blobs: int
+    nb_rods: int
     dt: float
-    Nstep: int
-    freq: float
-
+    nb_episodes: int
+    nb_step: int
+    learning_rate: float
+    discount_factor: float
+    lookahead_steps: int
 
 def load_config(path="config.yaml") -> Config:
     with open(path, 'r') as file:
