@@ -412,11 +412,8 @@ class DiatomEnv:
             axis_1 = quaternion_rotation_matrix(*quats[i])[:, 0]
             axis_1 /= np.linalg.norm(axis_1)
 
-            axis_2 = quaternion_rotation_matrix(*quats[i + 1])[:, 0]
-            axis_2 /= np.linalg.norm(axis_2)
-
-            gap_proj = (np.dot(delta, axis_1) + np.dot(-delta, axis_2)) * 0.5
-            gap = int(round(gap_proj / (2 * a)))
+            gap_proj = np.dot(delta, axis_1)
+            gap = int(round(gap_proj / a))
             gaps.append(gap)
 
         return ColonyState(tuple(gaps))
