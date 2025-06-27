@@ -20,7 +20,7 @@ from sim_env import DiatomEnv, Action
 from validate import validate_policy
 
 
-def q_learning(env: DiatomEnv, episodes, steps_per_episode, alpha=0.1, gamma=0.95, epsilon=0.1, lookahead_steps=1):
+def q_learning(env: DiatomEnv, episodes, steps_per_episode, alpha, gamma, epsilon=0.1, lookahead_steps=1):
     Q = defaultdict(float)
 
     for ep in range(episodes):
@@ -73,11 +73,14 @@ def main(input_file_path, output_directory, nb_blobs, nb_rods, dt, nb_step, nb_e
     # Lancer l'apprentissage Q-learning
     # episodes = 1000
     # steps_per_episode = 40
-    Q = q_learning(env, episodes=nb_episodes,
-                    steps_per_episode=nb_step,
-                   alpha=learning_rate,
-                   gamma=discount_factor,
-                   )
+    Q = q_learning(
+        env,
+        episodes=nb_episodes,
+        steps_per_episode=nb_step,
+        alpha=learning_rate,
+        gamma=discount_factor,
+
+    )
 
     # Sauvegarder la table Q
     base_filename = os.path.join(
