@@ -7,7 +7,7 @@ import os
 import math
 from typing import List
 
-from utils import get_sim_folder, RewardMethod
+from utils import get_sim_folder, RewardMethod, quaternion_rotation_matrix
 import numpy as np
 
 
@@ -21,6 +21,7 @@ class Action:
     direction: int
 
 class DiatomEnv:
+    fact_blobs = 0.81
     def __init__(self,
                  input_file_path: str,
                  output_dir: str,
@@ -50,7 +51,7 @@ class DiatomEnv:
         available_actions: List[Action] = []
 
         for n_rod in range(self.n_rods):
-            for direction in [-1, 1]:  # -1: contract, 1: expand
+            for direction in [-1, 1]:  # -1: right, 1: left
                 new_gaps = list(state.gaps)
 
                 for offset, sign in zip([-1, 0], [-1, 1]):
@@ -189,7 +190,7 @@ class DiatomEnv:
         """
 
         const_path = os.path.join(self.sim_dir, self.const_filename)
-        expression = self.a / (2 * self.dt) * direction
+        expression = self.fact_blobs * self.a / (2 * self.dt) * direction
         sixzeros = ['0'] * 6
         constraints = {}
         last_pos = list(map(self._safe_eval, self.const_pos))
@@ -214,14 +215,12 @@ class DiatomEnv:
                 vel1x = f"{expression}"
                 vel2x = f"{-expression}"
                 self.const_pos[n] = pos1x
-                # self.const_pos[n + self.n_rods - 1] = pos2x
             elif n + 1 == moving_rod:
                 pos1x = f"{-expression}*t" + f"+{last_pos[n]}"
                 pos2x = f"{expression}*t" + f"+{-last_pos[n]}"
                 vel1x = f"{-expression}"
                 vel2x = f"{expression}"
                 self.const_pos[n] = pos1x
-                # self.const_pos[n + self.n_rods - 1] = pos2x
             # Contrainte 1 (centrale)
             raw_expr_1 = sixzeros + [
                 pos1x, pos1y, pos1z,
@@ -415,24 +414,6 @@ class DiatomEnv:
             axis_1 /= np.linalg.norm(axis_1)
 
             gap_proj = np.dot(delta, axis_1)
-            gap = int(round(gap_proj / a))
+            gap = int(round(gap_proj / (DiatomEnv.fact_blobs * a)))
             gaps.append(gap)
-
         return ColonyState(tuple(gaps))
-
-def quaternion_rotation_matrix(q0, q1, q2, q3):
-    r00 = 2 * (q0 * q0 + q1 * q1) - 1
-    r01 = 2 * (q1 * q2 - q0 * q3)
-    r02 = 2 * (q1 * q3 + q0 * q2)
-
-    r10 = 2 * (q1 * q2 + q0 * q3)
-    r11 = 2 * (q0 * q0 + q2 * q2) - 1
-    r12 = 2 * (q2 * q3 - q0 * q1)
-
-    r20 = 2 * (q1 * q3 - q0 * q2)
-    r21 = 2 * (q2 * q3 + q0 * q1)
-    r22 = 2 * (q0 * q0 + q3 * q3) - 1
-
-    return np.array([[r00, r01, r02],
-                     [r10, r11, r12],
-                     [r20, r21, r22]])
