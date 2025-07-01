@@ -10,7 +10,7 @@ if __name__ == '__main__':
     configs = []
     for i in range(2):
         for j in range(10):
-            path_output = os.path.join(base_config.output_directory, f"0.{j}", f"{'x_mvt' if i == 0 else 'z_mvt'}")
+            path_output = os.path.join(base_config.output_directory, f"0.{j}_{'x_mvt' if i == 0 else 'z_mvt'}")
             new_config = Config(
                 input_file_path=base_config.input_file_path,
                 output_directory=path_output,
