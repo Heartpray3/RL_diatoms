@@ -1,306 +1,148 @@
-# -*- coding: utf-8 -*-
-"""
-Spyder Editor
-
-This is a temporary script file.
-"""
-from __future__ import division, print_function
+# noinspection PyUnresolvedReferences
+import matplotlib.pyplot as plt; plt.close('all')
+from sim_env import DiatomEnv
 import os
 import numpy as np
-import matplotlib.pylab as plt
-import cv2
-import matplotlib.cm as cm
-from matplotlib.collections import LineCollection
-from utils import load_config, abs_path, get_sim_folder
-from sim_env import quaternion_rotation_matrix
-#%% Input
+import matplotlib.pyplot as plt
+from utils import load_config, get_sim_folder, quaternion_rotation_matrix
 
-a = 0.183228708092682 # blob radius
+# === PARAMÈTRES ===
+run_single_file = True         # ← active la PARTIE 1
+run_multiple_episodes = False  # ← active la PARTIE 2
+trace_every_n = 100           # pour la PARTIE 2
 
-plot_blobs_all_step = 0
-
-save_movie_blobs = 1
-save_movie_without_blobs = 0
-
-config_file = load_config()
-Nblobs_vec = [config_file.nb_blobs]
-Nrods_vec = [config_file.nb_rods] #Do not vary with a np.arrange
-phase_shift_vec = [2.0]
-
+# === CONFIGURATION ===
+config = load_config()
+Nrods = config.nb_rods
+dt = config.dt
+a = 0.183228708092682
+working_dir = config.output_directory
 root_name = 'bacillaria_'
-working_dir = config_file.output_directory
+sim_dir = get_sim_folder(working_dir, config.nb_rods, config.nb_blobs)
+sim_path = os.path.join(working_dir, sim_dir)
 
+# === CHARGEMENT VERTEX ===
+vertex_file = os.path.join(working_dir, f"{config.nb_blobs}_Blobs", f"{root_name}{config.nb_blobs}_blobs.vertex")
+with open(vertex_file, 'r') as f:
+    lines = f.read().split()
+    nb_blobs = int(lines[0])
+    vertex = np.array(lines[1:], dtype=float).reshape((-1, 3))
 
-def parse_config_file(filepath):
-    """
-    Lit un fichier .config contenant toutes les poses (position + quaternion) pour Nrods à chaque step.
-
-    Args:
-        filepath (str): chemin du fichier .config
-    Returns:
-        cm_positions: array (Nsteps, 3)
-        cm_velocities: array (Nsteps - 1, 3)
-    """
+# === FONCTION DE LECTURE DES POSES ===
+def load_cm_positions(filepath, Nrods):
     with open(filepath, 'r') as f:
-        lines = f.readlines()
+        lines = [list(map(float, l.strip().split())) for l in f if len(l.strip().split()) == 7]
+    data = np.array(lines)
+    if len(data) % Nrods != 0:
+        print(f"⚠️ {filepath} mal formé.")
+        return None
+    n_steps = len(data) // Nrods
+    positions = data.reshape((n_steps, Nrods, 7))
+    return positions
 
-    data = []
-    for line in lines:
-        parts = list(map(float, line.strip().split()))
-        if len(parts) == 7:
-            data.append(parts)
-
-    data = np.array(data).reshape((config_file.nb_step, config_file.nb_rods, 7))  # shape: (time, rod, [x y z qx qy qz qw])
-
-    # Calculer les centres de masse
-    cm_positions = data[:, :, 0:3].mean(axis=1)  # moyenne sur les rods pour chaque step
-
-    # Calcul des vitesses
-    cm_velocities = np.diff(cm_positions, axis=0) / config_file.dt
-
-    return cm_positions, cm_velocities
-
-#%% Code
-
-Nr = len(Nrods_vec)
-Nps = len(phase_shift_vec)
-Nb = len(Nblobs_vec)
-
-L = Nrods_vec[0]*2*a
-
-#####Vertex file#####
-
-os.chdir(working_dir)
-         
-for nb in range(Nb):
-    Nblobs = Nblobs_vec[nb]
-    suffix_Nrods = str(Nblobs) +  '_blobs_'
-    filename1 = root_name + suffix_Nrods
-
-    filename_blob_vertex = os.path.join(str(Nblobs) + "_Blobs", root_name + str(Nblobs) + '_blobs.vertex')
-    if not os.path.exists(filename_blob_vertex):
-        print(f"File {filename_blob_vertex} does not exist.")
-        exit()
-    f  = open(filename_blob_vertex, 'r')
-    data1 = f.read()
-    data1 = data1.split()
-
-    vertex = []
-    blobs = []
-    for i in range(len(data1)):
-        if data1[i]!=data1[0]:
-            vertex.append(data1[i])
-
-    blobs.append(data1[0])
-    blobs = np.asarray(blobs)
-    blobs = blobs.astype(float)
-    blobs = int(blobs[0])
-
-    vertex = np.asarray(vertex)
-    vertex = vertex.astype(float)
-    vertex = np.reshape(vertex,(-1,3))
+# === CALCUL POSITIONS BLOBS ===
+def compute_all_blob_positions(rods_positions, vertex):
+    n_steps, Nrods, _ = rods_positions.shape
+    blobs = vertex.shape[0]
+    pos_all_blobs = np.zeros((n_steps, Nrods * blobs, 3))
+    for t in range(n_steps):
+        idx = 0
+        for r in range(Nrods):
+            x, y, z, qx, qy, qz, qw = rods_positions[t, r]
+            R = quaternion_rotation_matrix(qx, qy, qz, qw)
+            center = np.array([x, y, z])
+            rotated_blobs = (R @ vertex.T).T + center
+            pos_all_blobs[t, idx:idx+blobs, :] = rotated_blobs
+            idx += blobs
+    return pos_all_blobs
 
 
-    N_phase_shift_vec = np.size(phase_shift_vec)
-    position_com_all_ps = np.zeros((N_phase_shift_vec, config_file.nb_step, 3))
-    ind1 = 0
+# === PARTIE 1 ===
+if run_single_file:
+    print("→ Traitement du fichier step_0")
+    file_name = f"step_0_update_{root_name}{config.nb_blobs}_blobs_{config.nb_rods}_rods.config"
+    filepath = os.path.join(sim_path, file_name)
 
-    # sim_dir = get_sim_folder(config_file.output_directory, config_file.Nrods, Nblobs)
-    # mean_velocities = []
-    #
-    # for i in range(1000):
-    #     filepath = os.path.join(
-    #         working_dir,
-    #         sim_dir,
-    #         f'step_{i}_update_{filename1}{config_file.Nrods}_rods.config'
-    #     )
-    #     cm_pos_array, cm_vel_array = parse_config_file(filepath)  # Chaque un: shape = (n_steps, dim)
-    #
-    #     # Convertir en numpy arrays si ce n'est pas déjà fait
-    #     cm_vel_array = np.array(cm_vel_array)
-    #     cm_pos_array = np.array(cm_pos_array)
-    #
-    #     # Calcul de la vitesse moyenne de l'épisode (norme moyenne)
-    #     vel_norms = np.linalg.norm(cm_vel_array, axis=1)  # Norme à chaque sous-pas
-    #     episode_mean_vel = np.mean(vel_norms)
-    #     mean_velocities.append(episode_mean_vel)
-    #
-    #     # Tous les 100 épisodes : tracer la trajectoire
-    #     if i % 100 == 0:
-    #         plt.figure()
-    #         plt.plot(cm_pos_array[:, 0], cm_pos_array[:, 2])  # x vs y
-    #         plt.xlabel('x')
-    #         plt.ylabel('z')
-    #         plt.title(f'Trajectoire CM - épisode {i}')
-    #         plt.axis('equal')
-    #         plt.grid(True)
-    #         plt.savefig(f'trajectoire_cm_episode_{i}.png', dpi=300)
-    #         plt.close()
-    #
-    # # Plot global des vitesses moyennes
-    # plt.figure()
-    # plt.plot(mean_velocities)
-    # plt.xlabel('Épisode')
-    # plt.ylabel('Vitesse moyenne du CM')
-    # plt.title('Évolution de la vitesse moyenne du CM par épisode')
-    # plt.grid(True)
-    # plt.savefig('vitesse_moyenne_par_episode.png', dpi=300)
-    # plt.close()
-    #
-    # exit()
+    rods_positions = load_cm_positions(filepath, Nrods)
+    if rods_positions is not None:
+        cm_positions = rods_positions[:, :, 0:3].mean(axis=1)
+        cm_velocity = np.diff(cm_positions, axis=0) / dt
+        pos_all_blobs = compute_all_blob_positions(rods_positions, vertex)
 
+        n_steps = pos_all_blobs.shape[0]
+        L = Nrods * 2 * a
+        theta = np.linspace(0, 2 * np.pi, 100)
 
-    for g in range(Nr):
-        Nrods = Nrods_vec[g]
-        L = Nrods*2*a
-        N_lambda_vec= []
-        for h in range(Nps):
-            phase_shift = phase_shift_vec[h]
-            N_lambda = phase_shift/2
-            N_lambda_vec.append(N_lambda)
+        xmin = np.min(pos_all_blobs[:, :, 0])
+        xmax = np.max(pos_all_blobs[:, :, 0])
+        zmin = np.min(pos_all_blobs[:, :, 2])
+        zmax = np.max(pos_all_blobs[:, :, 2])
+        maxi = max(abs(xmin), xmax, abs(zmin), zmax)
+        xmin, xmax = -maxi, maxi
+        zmin, zmax = -maxi, maxi
 
-            #####Config file#####
+        for i in range(n_steps):
+            plt.figure(figsize=(12.8, 9.6))
+            plt.xlabel('x/L')
+            plt.ylabel('z/L')
+            plt.xlim(((xmin - 3 * a) / L, (xmax + 3 * a) / L))
+            plt.ylim(((zmin - 3 * a) / L, (zmax + 3 * a) / L))
 
-            psint,psfloat = str(phase_shift).split(".")
-            psint = psint[0]
-            psfloat = psfloat[0]
+            for j in range(nb_blobs * Nrods):
+                x = a * np.cos(theta) / L + pos_all_blobs[i, j, 0] / L
+                z = a * np.sin(theta) / L + pos_all_blobs[i, j, 2] / L
+                plt.plot(x, z, '#d2aa0f', zorder=-2)
+                plt.fill_between(x, z, facecolor='#d2aa0f')
 
-            sim_dir = get_sim_folder(config_file.output_directory, Nrods, Nblobs)
-            os.chdir(os.path.join(working_dir, sim_dir))
+            # Centre de masse courant (point bleu)
+            plt.plot(cm_positions[i, 0] / L, cm_positions[i, 2] / L, 'bo', markersize=8, label='CM actuel')
+            # Trace historique du CM (ligne rouge)
+            plt.plot(cm_positions[0:i + 1, 0] / L, cm_positions[0:i + 1, 2] / L, 'r-', lw=2, label='Trajectoire CM')
+            state = DiatomEnv.infer_colony_state_from_positions(rods_positions[i, :, 0:3], rods_positions[i, :, 3:], a)
+            plt.title(f"Colony State {state}")
+            plt.legend()
+            # plt.show()
 
-            f  = open('step_999_update_'+str(filename1)+str(Nrods)+'_rods.config','r')
-            data2 = f.read()
-            data2 = data2.split()
+            plt.savefig(f'N_{Nrods}_Step_{i}.pdf')
+            plt.close()
 
-            config = []
-            for i in range(len(data2)):
-                if data2[i]!=str(Nrods):
-                    config.append(data2[i])
-            config = np.asarray(config)
-            config = config.astype(float)
-            config = np.reshape(config,(-1,7))
+# === PARTIE 2 : TOUS LES ÉPISODES ===
+if run_multiple_episodes:
+    print("→ Traitement de tous les fichiers .config")
+    all_files = sorted([
+        f for f in os.listdir(sim_path)
+        if f.startswith("step_") and f.endswith(".config")
+    ])
+    episode_velocities = []
 
-            position_com = np.zeros((config_file.nb_step, 3))
-            pos_all_blobs = np.zeros((blobs * Nrods, config_file.nb_step, 3))
+    for idx, filename in enumerate(all_files):
+        path = os.path.join(sim_path, filename)
+        cm_positions, cm_velocities = load_cm_positions(path, Nrods)
+        if cm_positions is None:
+            continue
 
-            for i in range(config_file.nb_step): #loop over time
+        vel_norms = np.linalg.norm(cm_velocities, axis=1)
+        mean_vel = np.mean(vel_norms)
+        episode_velocities.append(mean_vel)
 
-                #####Center of mass#####
+        if idx % trace_every_n == 0:
+            plt.figure(figsize=(8, 6))
+            plt.plot(cm_positions[:, 0], cm_positions[:, 2], label=f'Épisode {idx}')
+            plt.xlabel('x')
+            plt.ylabel('z')
+            plt.title(f'Trajectoire - épisode {idx}')
+            plt.axis('equal')
+            plt.grid(True)
+            plt.savefig(f"traj_cm_episode_{idx}.png", dpi=300)
+            plt.close()
 
-                config1 = 0
-                config2 = 0
-                config3 = 0
-
-                blobs_act = 0
-
-                for j in range(i*Nrods,(i+1)*Nrods):
-                    config1 += config[j,0]
-                    config2 += config[j,1]
-                    config3 += config[j,2]
-
-                config1 = config1 / Nrods
-                config2 = config2 / Nrods
-                config3 = config3 / Nrods
-
-                position_com[i,0] = config1
-                position_com[i,1] = config2
-                position_com[i,2] = config3
-
-                position_com_all_ps[ind1,:,:] = position_com[:,:]
-
-                ######Blob position#####
-
-                for j in range(i*Nrods,(i+1)*Nrods):
-
-                    #Rotation matrix for each blobs
-                    R1 = quaternion_rotation_matrix(config[j,3],config[j,4],config[j,5],config[j,6])
-                    U1 = np.array((config[j,0],config[j,1],config[j,2]))
-
-                    # Position of Nblob on N
-                    b1_pos = np.repeat(U1,1) + (R1 @ vertex.T).T
-
-                    for k in range(blobs):
-
-                        pos_all_blobs[blobs_act,i,:] = b1_pos[k,:]
-                        blobs_act += 1
-
-
-    #%% Post-Processing
-
-            xmin = np.min(pos_all_blobs[:,:,0])
-            xmax = np.max(pos_all_blobs[:,:,0])
-            zmin = np.min(pos_all_blobs[:,:,2])
-            zmax = np.max(pos_all_blobs[:,:,2])
-
-            maxi = max(abs(xmin),xmax,abs(zmin),zmax)
-
-            xmin = -maxi
-            xmax = maxi
-            zmin = -maxi
-            zmax = maxi
-
-            theta = np.linspace( 0 , 2 * np.pi , 100)
-
-            if plot_blobs_all_step == 1 :
-                for i in range(config_file.nb_step): #loop over time
-
-                    plt.figure('N = ' + str(Nrods_vec[g]) + ', phi = ' + str(N_lambda_vec[h]) + ' et Step = ' + str(i),figsize=(12.8,9.6))
-                    plt.xlabel('x/L')
-                    plt.ylabel('z/L')
-                    plt.xlim(((xmin-3*a)/L,(xmax+3*a)/L))
-                    plt.ylim(((zmin-3*a)/L,(zmax+3*a)/L))
-                    for j in range(blobs*Nrods):
-                        x = a * np.cos(theta)/L + pos_all_blobs[j,i,0]/L
-                        z = a * np.sin(theta)/L + pos_all_blobs[j,i,2]/L
-                        plt.plot(x,z,'#21918c')
-                        plt.fill_between(x,z,facecolor='#21918c')
-                    plt.plot(position_com[0:i,0]/L,position_com[0:i,2]/L,'r')
-                    plt.show()
-                    plt.pause(0.25)
-                    plt.close()
-
-        if save_movie_blobs == 1 :
-
-            # norm = plt.Normalize(velocity[g,h,:].min(), velocity[g,h,:].max())
-
-            for i in range(config_file.nb_step): #loop over time
-                plt.figure('Test pour N = ' + str(Nrods_vec[g]) + ' et N_lambda = ' + str(N_lambda_vec[h]) + ' Step = ' + str(i),figsize=(12.8,9.6))
-                plt.xlabel('x/L')
-                plt.ylabel('z/L')
-                plt.xlim(((xmin-3*a)/L,(xmax+3*a)/L))
-                plt.ylim(((zmin-3*a)/L,(zmax+3*a)/L))
-
-                for j in range(blobs*Nrods):
-                    x = a * np.cos(theta)/L + pos_all_blobs[j,i,0]/L
-                    z = a * np.sin(theta)/L + pos_all_blobs[j,i,2]/L
-                    plt.plot(x,z,'#d2aa0f',zorder=-2)
-                    plt.fill_between(x,z,facecolor='#d2aa0f')
-                points = np.array([position_com[0:i,0]/L, position_com[0:i,2]/L]).T.reshape(-1, 1, 2)
-                segments = np.concatenate([points[:-1], points[1:]], axis=1)
-
-                # Create a continuous norm to map from data points to colors
-                # lc = LineCollection(segments, cmap='plasma', norm=norm)
-                # lc.set_array(velocity[g,h,:])
-                # lc.set_linewidth(2)
-                # plt.gca().add_collection(lc)
-                # plt.colorbar(cm.ScalarMappable(cmap = 'plasma', norm=norm))
-
-                plt.savefig('N = ' + str(Nrods_vec[g]) + ' et N_lambda = ' + str(N_lambda_vec[h]) + ' Step = ' + str(i) +'.pdf')
-                plt.close()
-
-        if save_movie_without_blobs == 1 :
-
-            xmin2 = np.min(position_com[:,0])
-            xmax2 = np.max(position_com[:,0])
-            zmin2 = np.min(position_com[:,2])
-            zmax2 = np.max(position_com[:,2])
-
-            maxi = max(abs(xmin2),xmax2,abs(zmin2),zmax2)
-
-            xmin2 = -maxi
-            xmax2 = maxi
-            zmin2 = -maxi
-            zmax2 = maxi
-
-
-
+    # Courbe vitesse moyenne
+    if episode_velocities:
+        plt.figure(figsize=(8, 5))
+        plt.plot(episode_velocities, '-o')
+        plt.xlabel('Épisode')
+        plt.ylabel('Vitesse moyenne CM')
+        plt.title('Évolution de la vitesse moyenne')
+        plt.grid(True)
+        plt.savefig("vitesse_moyenne_par_episode.png", dpi=300)
+        plt.show()
