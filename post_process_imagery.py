@@ -101,12 +101,14 @@ if run_single_file:
             state = DiatomEnv.infer_colony_state_from_positions(rods_positions[i, :, 0:3], rods_positions[i, :, 3:], a)
             plt.title(f"Colony State {state}")
             plt.legend()
-            # plt.show()
+            plt.show()
 
             plt.savefig(f'N_{Nrods}_Step_{i}.pdf')
             plt.close()
 
 # === PARTIE 2 : TOUS LES ÉPISODES ===
+path_to_save = os.path.join("./", "images", os.path.basename(working_dir))
+os.makedirs(path_to_save, exist_ok=True)
 if run_multiple_episodes:
     print("→ Traitement de tous les fichiers .config")
     all_files = sorted([
@@ -117,10 +119,11 @@ if run_multiple_episodes:
 
     for idx, filename in enumerate(all_files):
         path = os.path.join(sim_path, filename)
-        cm_positions, cm_velocities = load_cm_positions(path, Nrods)
-        if cm_positions is None:
+        rods_positions = load_cm_positions(path, Nrods)
+        if rods_positions is None:
             continue
-
+        cm_positions = rods_positions[:, :, 0:3].mean(axis=1)
+        cm_velocities = np.diff(cm_positions, axis=0) / dt
         vel_norms = np.linalg.norm(cm_velocities, axis=1)
         mean_vel = np.mean(vel_norms)
         episode_velocities.append(mean_vel)
@@ -133,7 +136,7 @@ if run_multiple_episodes:
             plt.title(f'Trajectoire - épisode {idx}')
             plt.axis('equal')
             plt.grid(True)
-            plt.savefig(f"traj_cm_episode_{idx}.png", dpi=300)
+            plt.savefig(os.path.join(path_to_save, f"traj_cm_episode_{idx}.png"), dpi=300)
             plt.close()
 
     # Courbe vitesse moyenne
@@ -144,5 +147,5 @@ if run_multiple_episodes:
         plt.ylabel('Vitesse moyenne CM')
         plt.title('Évolution de la vitesse moyenne')
         plt.grid(True)
-        plt.savefig("vitesse_moyenne_par_episode.png", dpi=300)
+        plt.savefig(os.path.join(path_to_save, "vitesse_moyenne_par_episode.png"), dpi=300)
         plt.show()
