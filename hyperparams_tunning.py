@@ -8,22 +8,23 @@ if __name__ == '__main__':
 
     base_config = load_config()
     configs = []
-    for i in range(2):
-        for j in range(10):
-            path_output = os.path.join(base_config.output_directory, f"0.{j}_{'x_mvt' if i == 0 else 'z_mvt'}")
+    for params in [(200, 1000), (40, 5000)]:
+        for j, gamma in enumerate([0.4, 0.5, 0.6]):
+            nb_steps, nb_epoch = params
+            path_output = os.path.join(base_config.output_directory, f"gamma_{gamma}_ep_{nb_epoch}_step_{nb_steps}_z_mvt")
             new_config = Config(
                 input_file_path=base_config.input_file_path,
                 output_directory=path_output,
                 nb_blobs=base_config.nb_blobs,
                 nb_rods=base_config.nb_rods,
                 dt=base_config.dt,
-                nb_step=base_config.nb_step,
-                nb_episodes=base_config.nb_episodes,
-                learning_rate=base_config.learning_rate,
-                discount_factor=j / 10,
+                nb_step=nb_steps,
+                nb_episodes=nb_epoch,
+                learning_rate=1,
+                discount_factor=gamma,
                 lookahead_steps=base_config.lookahead_steps,
                 reward_method=RewardMethod.FORWARD_PROGRESS,
-                reward_angle=i * 90
+                reward_angle=90
             )
 
             # Génère les arguments en ligne de commande
