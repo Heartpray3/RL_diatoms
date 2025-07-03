@@ -280,7 +280,7 @@ class DiatomEnv:
             self._step = 0
             self.state = ColonyState(tuple(random.randint(-(self.n_blobs - 1), self.n_blobs - 1) for _ in range(self.n_rods - 1)))#ColonyState((0,) * (self.n_rods - 1))
             self.update_file = f'step_{episode_nb}_update_'
-            self.setup(self.input_parm, self.output_param, delete_folder=True)
+            self.setup(self.input_parm, self.output_param, delete_folder=False)
             self.initial_cm = None
             self.const_pos = []
             for n in range(self.n_rods - 1):
