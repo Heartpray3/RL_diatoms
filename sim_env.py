@@ -1,3 +1,4 @@
+import random
 import shutil
 import sys
 from dataclasses import dataclass
@@ -38,7 +39,7 @@ class DiatomEnv:
         self.n_blobs = n_blobs
         self.a = a
         self.dt = dt
-        self.state = None
+        self.state = ColonyState(tuple())
         self._step = 0
         self.update_file = ''
         self.setup(input_file_path, output_dir, delete_folder=True)
@@ -193,7 +194,7 @@ class DiatomEnv:
         expression = self.fact_blobs * self.a / (2 * self.dt) * direction
         sixzeros = ['0'] * 6
         constraints = {}
-        last_pos = list(map(self._safe_eval, self.const_pos))
+        last_pos = list(map(lambda x: self.fact_blobs * x * self.a / 2, self.state.gaps))
 
         for n in range(self.n_rods - 1):
             i, j = n, n + 1
@@ -208,19 +209,20 @@ class DiatomEnv:
             vel1x = vel2x = "0"
 
 
-            # Si ce bâton est le mobile
+            # TRUST ME THIS WHOLE BLOCK MAYBE CONFUSING BUT IS CORRECT ABSOLUTLY CORRECT DO NOT TOUCH IT IF YOU DON'T
+            # WANT TO DEBUG FOR 3 HOURS.
             if n == moving_rod:
                 pos1x = f"{expression}*t" + f"+{last_pos[n]}"
                 pos2x = f"{-expression}*t" + f"+{-last_pos[n]}"
                 vel1x = f"{expression}"
                 vel2x = f"{-expression}"
-                self.const_pos[n] = pos1x
+                # self.const_pos[n] = pos1x
             elif n + 1 == moving_rod:
                 pos1x = f"{-expression}*t" + f"+{last_pos[n]}"
                 pos2x = f"{expression}*t" + f"+{-last_pos[n]}"
                 vel1x = f"{-expression}"
                 vel2x = f"{expression}"
-                self.const_pos[n] = pos1x
+                # self.const_pos[n] = pos1x
             # Contrainte 1 (centrale)
             raw_expr_1 = sixzeros + [
                 pos1x, pos1y, pos1z,
@@ -276,9 +278,9 @@ class DiatomEnv:
 
     def reset(self, episode_nb: int) -> ColonyState:
             self._step = 0
-            self.state = ColonyState((0,) * (self.n_rods - 1))
+            self.state = ColonyState(tuple(random.randint(-(self.n_blobs - 1), self.n_blobs - 1) for _ in range(self.n_rods - 1)))#ColonyState((0,) * (self.n_rods - 1))
             self.update_file = f'step_{episode_nb}_update_'
-            self.setup(self.input_parm, self.output_param, delete_folder=False)
+            self.setup(self.input_parm, self.output_param, delete_folder=True)
             self.initial_cm = None
             self.const_pos = []
             for n in range(self.n_rods - 1):
@@ -314,18 +316,7 @@ class DiatomEnv:
 
         filename_clones = filename + '.clones'
 
-        pos = np.zeros((self.n_rods, 3))
-        quat = np.zeros((self.n_rods, 4))
-
-        for n in range(self.n_rods):
-            pos[n, 2] = (n - 1) * 2 * self.a
-            quat[n, 0] = 1
-        mean_pos = np.mean(pos, axis=0)
-
-        for n in range(self.n_rods):
-            pos[n, :] = pos[n, :] - mean_pos
-
-        to_save = np.concatenate((pos, quat), axis=1)
+        to_save = self.give_abs_state()
 
         fid = open(os.path.join(self.sim_dir, filename_clones), 'w')
         fid.write(str(self.n_rods) + '\n')
@@ -378,6 +369,25 @@ class DiatomEnv:
                 key, *vals = line.split()
                 new_vals = updates.get(key, vals)
                 f.write(f"{key.ljust(max_len + 1)}{' '.join(new_vals)}\n")
+
+    def give_abs_state(self, angle=None):
+        n_rods = len(self.state.gaps) + 1
+        pos = np.zeros((n_rods, 3))
+        quat = np.zeros((n_rods, 4))
+        quat[0, 0] = 1
+        # pos[0, 0] = 0.0
+        for n, gap in enumerate(self.state.gaps):
+            pos[n + 1, 2] = (n + 1) * 2 * self.a
+            pos[n + 1, 0] = gap * self.a * self.fact_blobs  + pos[n, 0]
+            quat[n + 1, 0] = 1
+        mean_pos = np.mean(pos, axis=0)
+
+        for n in range(n_rods):
+            pos[n, :] = pos[n, :] - mean_pos
+
+        to_save = np.concatenate((pos, quat), axis=1)
+
+        return to_save
 
     def physical_colony_state(self) -> ColonyState:
         get_sim_file = lambda prefix, suffix: os.path.join(
