@@ -20,6 +20,7 @@ working_dir = config.output_directory
 root_name = 'bacillaria_'
 sim_dir = get_sim_folder(working_dir, config.nb_rods, config.nb_blobs)
 sim_path = os.path.join(working_dir, sim_dir)
+L = 2 * a + (Nrods - 1) * 0.81 * a
 
 # === CHARGEMENT VERTEX ===
 vertex_file = os.path.join(working_dir, f"{config.nb_blobs}_Blobs", f"{root_name}{config.nb_blobs}_blobs.vertex")
@@ -60,7 +61,7 @@ def compute_all_blob_positions(rods_positions, vertex):
 # === PARTIE 1 ===
 if run_single_file:
     print("→ Traitement du fichier step_0")
-    file_name = f"step_0_update_{root_name}{config.nb_blobs}_blobs_{config.nb_rods}_rods.config"
+    file_name = f"step_999_update_{root_name}{config.nb_blobs}_blobs_{config.nb_rods}_rods.config"
     filepath = os.path.join(sim_path, file_name)
 
     rods_positions = load_cm_positions(filepath, Nrods)
@@ -70,7 +71,6 @@ if run_single_file:
         pos_all_blobs = compute_all_blob_positions(rods_positions, vertex)
 
         n_steps = pos_all_blobs.shape[0]
-        L = Nrods * 2 * a
         theta = np.linspace(0, 2 * np.pi, 100)
 
         xmin = np.min(pos_all_blobs[:, :, 0])
@@ -101,7 +101,7 @@ if run_single_file:
             state = DiatomEnv.infer_colony_state_from_positions(rods_positions[i, :, 0:3], rods_positions[i, :, 3:], a)
             plt.title(f"Colony State {state}")
             plt.legend()
-            plt.show()
+            # plt.show()
 
             plt.savefig(f'N_{Nrods}_Step_{i}.pdf')
             plt.close()
@@ -116,7 +116,6 @@ if run_multiple_episodes:
         if f.startswith("step_") and f.endswith(".config")
     ])
     episode_velocities = []
-
     for idx, filename in enumerate(all_files):
         path = os.path.join(sim_path, filename)
         rods_positions = load_cm_positions(path, Nrods)
@@ -124,15 +123,17 @@ if run_multiple_episodes:
             continue
         cm_positions = rods_positions[:, :, 0:3].mean(axis=1)
         cm_velocities = np.diff(cm_positions, axis=0) / dt
+        cm_velocities /= L
         vel_norms = np.linalg.norm(cm_velocities, axis=1)
         mean_vel = np.mean(vel_norms)
         episode_velocities.append(mean_vel)
 
         if idx % trace_every_n == 0:
             plt.figure(figsize=(8, 6))
-            plt.plot(cm_positions[:, 0], cm_positions[:, 2], label=f'Épisode {idx}')
-            plt.xlabel('x')
-            plt.ylabel('z')
+            plt.plot(cm_positions[:, 0] / L, cm_positions[:, 2] / L, label=f'Épisode {idx}')
+            # plt.plot(cm_positions[:, 0], cm_positions[:, 2], label=f'Épisode {idx}')
+            plt.xlabel('x/L')
+            plt.ylabel('z/L')
             plt.title(f'Trajectoire - épisode {idx}')
             plt.axis('equal')
             plt.grid(True)
@@ -144,7 +145,7 @@ if run_multiple_episodes:
         plt.figure(figsize=(8, 5))
         plt.plot(episode_velocities, '-o')
         plt.xlabel('Épisode')
-        plt.ylabel('Vitesse moyenne CM')
+        plt.ylabel('Vitesse moyenne CM / L')
         plt.title('Évolution de la vitesse moyenne')
         plt.grid(True)
         plt.savefig(os.path.join(path_to_save, "vitesse_moyenne_par_episode.png"), dpi=300)
