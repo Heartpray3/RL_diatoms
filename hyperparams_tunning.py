@@ -8,15 +8,16 @@ if __name__ == '__main__':
 
     base_config = load_config()
     configs = []
-    for params in [(200, 1000), (40, 5000)]:
+    config_params = [(200, 1000)]
+    for params in config_params:
         for j, gamma in enumerate([0.4, 0.5, 0.6]):
             nb_steps, nb_epoch = params
             path_output = os.path.join(base_config.output_directory, f"gamma_{gamma}_ep_{nb_epoch}_step_{nb_steps}_z_mvt")
             new_config = Config(
                 input_file_path=base_config.input_file_path,
                 output_directory=path_output,
-                nb_blobs=base_config.nb_blobs,
-                nb_rods=base_config.nb_rods,
+                nb_blobs=2,
+                nb_rods=3,
                 dt=base_config.dt,
                 nb_step=nb_steps,
                 nb_episodes=nb_epoch,
