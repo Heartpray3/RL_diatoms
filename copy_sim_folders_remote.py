@@ -5,11 +5,12 @@ import os
 # Remote base path
 remote_base_path = "/moogwai/usr/ely/RigidMultiblobsWall-master-JLD/multi_bodies/examples/RL_diatoms"
 remote_folders = []
-
+tested_gamma = [0.4, 0.5, 0.6]
+tested_params = [(200, 1000)]
 # Build remote folder paths
-for i in range(2):
-    for j in range(10):
-        folder_name = f"0.{j}_{'x_mvt' if i == 0 else 'z_mvt'}"
+for step, episodes in tested_params:
+    for gamma in tested_gamma:
+        folder_name = f"3r_2b_gamma_{gamma}_ep_{episodes}_step_{step}_z_mvt"
         full_path = os.path.join(remote_base_path, folder_name)
         remote_folders.append(full_path)
 
