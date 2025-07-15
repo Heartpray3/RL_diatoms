@@ -82,28 +82,46 @@ if run_single_file:
         zmin, zmax = -maxi, maxi
 
         for i in range(n_steps):
-            plt.figure(figsize=(12.8, 9.6))
-            plt.xlabel('x/L')
-            plt.ylabel('z/L')
-            plt.xlim(((xmin - 3 * a) / L, (xmax + 3 * a) / L))
-            plt.ylim(((zmin - 3 * a) / L, (zmax + 3 * a) / L))
+            fig, axs = plt.subplots(2, 1, figsize=(12.8, 15), sharex=False, gridspec_kw={'height_ratios': [1, 2]})
+
+            # === PLOT CM ===
+            axs[0].set_title(f"Centre de masse - Step {i}")
+            axs[0].set_ylabel('z / L')
+            # Zoom précis autour du CM
+            zoom_margin = 2 * a  # ou 1.5 * a si tu veux un zoom plus serré
+            cx, cz = cm_positions[i, 0], cm_positions[i, 2]
+            axs[0].set_xlim(((cx - zoom_margin) / L, (cx + zoom_margin) / L))
+            axs[0].set_ylim(((cz - zoom_margin) / L, (cz + zoom_margin) / L))
+
+            # Point bleu du CM
+            axs[0].plot(cm_positions[i, 0] / L, cm_positions[i, 2] / L, 'bo', markersize=8, label='CM actuel')
+            # Trajectoire du CM
+            axs[0].plot(cm_positions[0:i + 1, 0] / L, cm_positions[0:i + 1, 2] / L, 'r-', lw=2, label='Trajectoire CM')
+            axs[0].legend()
+            axs[0].grid(True)
+
+            # === PLOT BLOBS ===
+            axs[1].set_title("Bâtonnets (blobs)")
+            axs[1].set_xlabel('x / L')
+            axs[1].set_ylabel('z / L')
+            axs[1].set_xlim(((xmin - 3 * a) / L, (xmax + 3 * a) / L))
+            axs[1].set_ylim(((zmin - 3 * a) / L, (zmax + 3 * a) / L))
 
             for j in range(nb_blobs * Nrods):
                 x = a * np.cos(theta) / L + pos_all_blobs[i, j, 0] / L
                 z = a * np.sin(theta) / L + pos_all_blobs[i, j, 2] / L
-                plt.plot(x, z, '#d2aa0f', zorder=-2)
-                plt.fill_between(x, z, facecolor='#d2aa0f')
+                axs[1].plot(x, z, '#d2aa0f', zorder=-2)
+                axs[1].fill_between(x, z, facecolor='#d2aa0f')
 
-            # Centre de masse courant (point bleu)
-            plt.plot(cm_positions[i, 0] / L, cm_positions[i, 2] / L, 'bo', markersize=8, label='CM actuel')
-            # Trace historique du CM (ligne rouge)
-            plt.plot(cm_positions[0:i + 1, 0] / L, cm_positions[0:i + 1, 2] / L, 'r-', lw=2, label='Trajectoire CM')
+            axs[1].grid(True)
+
+            # Titre global
             state = DiatomEnv.infer_colony_state_from_positions(rods_positions[i, :, 0:3], rods_positions[i, :, 3:], a)
-            plt.title(f"Colony State {state}")
-            plt.legend()
-            # plt.show()
+            fig.suptitle(f"Colony State: {state}", fontsize=14)
 
-            plt.savefig(f'N_{Nrods}_Step_{i}.pdf')
+            plt.tight_layout(rect=[0, 0, 1, 0.95])  # pour laisser de la place au titre
+            # plt.savefig(f'N_{Nrods}_Step_{i}.pdf')
+            plt.show()
             plt.close()
 
 # === PARTIE 2 : TOUS LES ÉPISODES ===
