@@ -45,7 +45,6 @@ class DiatomEnv:
         self.setup(input_file_path, output_dir, delete_folder=True)
         self.initial_cm = None
         self.update_file = ''
-        self.const_pos = []
         self.reset(0)
 
     def get_available_actions(self, state: ColonyState):
@@ -80,11 +79,11 @@ class DiatomEnv:
         )
 
         # Étape 3 : Lancer la simulation
-        SIM_SCRIPT_PATH = (Path(__file__).parent / "multi_bodies_bacillaria1.py").resolve()
+        sim_script_path = (Path(__file__).parent / "multi_bodies_bacillaria1.py").resolve()
         subprocess.run(
             [
             "python3",
-            str(SIM_SCRIPT_PATH),
+            str(sim_script_path),
             "--input-file",
             self.input_file_sim_path,
             # "--print-residual",
@@ -250,23 +249,11 @@ class DiatomEnv:
         }
 
         # Écriture via fonction dédiée
-        self.write_constraints_file(data_out, const_path)
-        return const_path
+        with open(const_path, "w") as f:
+            f.write(f"{data_out['n_rods']}\n")
+            f.write(f"{data_out['n_constraints']}\n")
 
-    def _safe_eval(self, expr):
-        """Convert numerical string or keep expressions like '1.1*(0)' or '3*t'."""
-        try:
-            # Try evaluating basic constants
-            return eval(expr, {"__builtins__": None}, {"t": self.dt})  # dummy eval to allow 't'
-        except:
-            return expr
-
-    def write_constraints_file(self, data, path):
-        with open(path, "w") as f:
-            f.write(f"{data['n_rods']}\n")
-            f.write(f"{data['n_constraints']}\n")
-
-            for key, constraint in data["constraints"].items():
+            for key, constraint in data_out["constraints"].items():
                 i, j = key[0], key[1]
                 raw_expr = constraint["raw_expr"]
 
@@ -275,16 +262,37 @@ class DiatomEnv:
 
                 line = f"{i} {j} " + " ".join(raw_expr)
                 f.write(line + "\n")
+        return const_path
+
+    # def _safe_eval(self, expr):
+    #     """Convert numerical string or keep expressions like '1.1*(0)' or '3*t'."""
+    #     try:
+    #         # Try evaluating basic constants
+    #         return eval(expr, {"__builtins__": None}, {"t": self.dt})  # dummy eval to allow 't'
+    #     except:
+    #         return expr
+
+    # def write_constraints_file(self, data, path):
+    #     with open(path, "w") as f:
+    #         f.write(f"{data['n_rods']}\n")
+    #         f.write(f"{data['n_constraints']}\n")
+    #
+    #         for key, constraint in data["constraints"].items():
+    #             i, j = key[0], key[1]
+    #             raw_expr = constraint["raw_expr"]
+    #
+    #             if len(raw_expr) != 18:
+    #                 raise ValueError(f"raw_expr for constraint {key} does not have 20 elements")
+    #
+    #             line = f"{i} {j} " + " ".join(raw_expr)
+    #             f.write(line + "\n")
 
     def reset(self, episode_nb: int) -> ColonyState:
             self._step = 0
             self.state = ColonyState(tuple(random.randint(-(self.n_blobs - 1), self.n_blobs - 1) for _ in range(self.n_rods - 1)))#ColonyState((0,) * (self.n_rods - 1))
-            self.update_file = f'step_{episode_nb}_update_'
+            self.update_file = f'epoch_{episode_nb}_update_'
             self.setup(self.input_parm, self.output_param, delete_folder=False)
             self.initial_cm = None
-            self.const_pos = []
-            for n in range(self.n_rods - 1):
-                self.const_pos.append('0')
             return self.state
 
     def setup(self, input_file_path, output_dir, delete_folder=True):
