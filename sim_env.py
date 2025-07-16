@@ -3,10 +3,13 @@ import shutil
 import sys
 from dataclasses import dataclass
 import subprocess
+from os import truncate
 from pathlib import Path
 import os
 import math
 from typing import List
+import gymnasium
+from gymnasium import spaces
 
 from utils import get_sim_folder, RewardMethod, quaternion_rotation_matrix
 import numpy as np
@@ -21,17 +24,22 @@ class Action:
     n_rod: int
     direction: int
 
-class DiatomEnv:
+class DiatomEnv(gymnasium.Env):
     fact_blobs = 0.81
     def __init__(self,
                  input_file_path: str,
                  output_dir: str,
                  n_rods: int,
                  n_blobs: int,
+                 reward_method: RewardMethod,
+                 nb_steps_per_ep,
                  a: float,
-                 dt: float):
+                 dt: float,
+                 angle = None):
         self.input_parm = input_file_path
         self.output_param = output_dir
+        self.reward_method = reward_method
+        self.angle = angle
         self.input_file_sim_path = ''
         self.sim_dir = ''
         self.const_filename = ''
@@ -45,7 +53,16 @@ class DiatomEnv:
         self.setup(input_file_path, output_dir, delete_folder=True)
         self.initial_cm = None
         self.update_file = ''
-        self.reset(0)
+        self.episode = 0
+        self.nb_steps_per_ep = nb_steps_per_ep
+        self.reset()
+        self.action_space = spaces.Discrete(self.n_rods * 2)
+        self.observation_space = spaces.Box(
+            low=-(self.n_blobs - 1),
+            high=+(self.n_blobs - 1),
+            shape=(self.n_rods - 1,),
+            dtype=np.int32
+        )
 
     def get_available_actions(self, state: ColonyState):
         available_actions: List[Action] = []
@@ -65,11 +82,35 @@ class DiatomEnv:
                     available_actions.append(Action(n_rod, direction))
         return available_actions
 
-    def step(self, action: Action):
+    def encode_action(self, action: Action) -> int:
+        dir_index = 0 if action.direction == -1 else 1
+        return action.n_rod * 2 + dir_index
+
+    def decode_action(self, action_index: int) -> Action:
+        direction = [-1, 1][action_index % 2]
+        n_rod = action_index // 2
+        return Action(n_rod, direction)
+
+    def _state_to_obs(self, state: ColonyState) -> np.ndarray:
+        return np.array(state.gaps, dtype=np.int32)
+
+    def step(self, action_index: int):
         """
             Exécute une étape avec une action donnée.
             Retourne : next_state, reward, done
         """
+        # Convertir l'action entière en Action(n_rod, direction)
+        action = self.decode_action(action_index)
+
+        # Vérifier si l'action est valide à cet état
+        valid_actions = self.get_available_actions(self.state)
+        if action not in valid_actions:
+            # Action invalide : grosse pénalité + épisode terminé
+            reward = -100.0
+            done = False
+            obs = self._state_to_obs(self.state)
+            return obs, reward, done, False, {"invalid_action": True}
+
         rod_number = action.n_rod
         direction = action.direction
 
@@ -118,16 +159,22 @@ class DiatomEnv:
                 continue
             new_gaps[idx] += direction * sign
         self.state = ColonyState(tuple(new_gaps))
-
+        reward = self.compute_reward(last_positions, new_positions)
         self._step += 1
-        return self.state, last_positions, new_positions
+        if self._step >= self.nb_steps_per_ep:
+            done = True
+        else:
+            done = False
+        # on n’utilise pas de truncated spécifique, donc :
+        truncated = False
+        return self._state_to_obs(self.state), reward, done, truncated, {}
 
-    def compute_reward(self, pos_before, pos_after, method: RewardMethod, angle=None):
+    def compute_reward(self, pos_before, pos_after):
         cm1 = self.compute_center_of_mass(pos_before)
         cm2 = self.compute_center_of_mass(pos_after)
         delta_cm = np.array(cm2) - np.array(cm1)
 
-        match method:
+        match self.reward_method:
             case RewardMethod.VELOCITY:
                 vel = [(c2 - c1) / self.dt for c1, c2 in zip(cm1, cm2)]
                 return float(np.linalg.norm(vel))
@@ -145,10 +192,10 @@ class DiatomEnv:
                 return int(dist // 10) - 1  # palier de 10
 
             case RewardMethod.FORWARD_PROGRESS:
-                if angle is None:
+                if self.angle is None:
                     raise ValueError("ANGLE IS REQUIRED FOR THIS METHOD")
 
-                direction = np.array([math.cos(angle), 0, math.sin(angle)])
+                direction = np.array([math.cos(self.angle), 0, math.sin(self.angle)])
                 direction /= np.linalg.norm(direction)
 
                 reward = np.dot(delta_cm, direction)
@@ -287,13 +334,16 @@ class DiatomEnv:
     #             line = f"{i} {j} " + " ".join(raw_expr)
     #             f.write(line + "\n")
 
-    def reset(self, episode_nb: int) -> ColonyState:
+    def reset(self, *, seed = None, options = None):
+            if seed:
+                random.seed(seed)
             self._step = 0
             self.state = ColonyState(tuple(random.randint(-(self.n_blobs - 1), self.n_blobs - 1) for _ in range(self.n_rods - 1)))#ColonyState((0,) * (self.n_rods - 1))
-            self.update_file = f'epoch_{episode_nb}_update_'
+            self.update_file = f'epoch_{self.episode}_update_'
             self.setup(self.input_parm, self.output_param, delete_folder=False)
             self.initial_cm = None
-            return self.state
+            self.episode += 1
+            return self._state_to_obs(self.state)
 
     def setup(self, input_file_path, output_dir, delete_folder=True):
         X_coef = 7.4209799e-02
