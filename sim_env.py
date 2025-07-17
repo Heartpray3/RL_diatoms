@@ -189,7 +189,7 @@ class DiatomEnv(gymnasium.Env):
                 if self.initial_cm is None:
                     self.initial_cm = cm1
                 dist = float(np.linalg.norm(np.array(cm2) - np.array(self.initial_cm)))
-                return int(dist // 10) - 1  # palier de 10
+                return dist
 
             case RewardMethod.FORWARD_PROGRESS:
                 if self.angle is None:

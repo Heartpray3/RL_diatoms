@@ -24,7 +24,7 @@ if __name__ == '__main__':
                 learning_rate=1,
                 discount_factor=0,
                 lookahead_steps=base_config.lookahead_steps,
-                reward_method=RewardMethod.FORWARD_PROGRESS,
+                reward_method=RewardMethod.CIRCULAR_ZONES,
                 reward_angle=90
             )
 
