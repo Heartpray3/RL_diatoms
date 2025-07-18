@@ -12,8 +12,11 @@ Code d'apprentissage par renforcement & simulation (Q-learning)
 
 import argparse
 import os
+
+from mpmath.libmp.libmpf import reciprocal_rnd
+from scipy.stats import reciprocal
 from stable_baselines3 import PPO
-from sim_env import DiatomEnv
+from sim_env import DiatomEnv, ColonyState, Action
 from utils import Config, abs_path, RewardMethod
 
 def main(config):
@@ -30,7 +33,6 @@ def main(config):
         angle=config.reward_angle
     )
 
-    # Instancier PPO
     model = PPO("MlpPolicy", env, verbose=1)
 
     # Entraîner
@@ -41,14 +43,20 @@ def main(config):
     model.save(os.path.join(config.output_directory, "ppo_diatom"))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input_file_path", required=True)
-    parser.add_argument("--output_directory", required=True)
+    parser = argparse.ArgumentParser(description="Apprentissage par renforcement.")
+    parser.add_argument("--input_file_path", type=str, required=True)
+    parser.add_argument("--output_directory", type=str, required=True)
     parser.add_argument("--nb_blobs", type=int, required=True)
     parser.add_argument("--nb_rods", type=int, required=True)
     parser.add_argument("--dt", type=float, default=0.00125)
     parser.add_argument("--nb_step", type=int, default=100)
+    parser.add_argument("--nb_episodes", type=int, default=1000)
+    parser.add_argument("--learning_rate", type=float, default=0.1)
+    parser.add_argument("--discount_factor", type=float, default=0.95)
+    parser.add_argument("--lookahead_steps", type=int, default=1)
     parser.add_argument("--reward_method", type=str, default="VELOCITY")
+    parser.add_argument("--progression_angle", type=float, default=None)
+
     args = parser.parse_args()
 
     config = Config(
@@ -58,11 +66,12 @@ if __name__ == "__main__":
         nb_rods=args.nb_rods,
         dt=args.dt,
         nb_step=args.nb_step,
-        nb_episodes=0,     # pas utilisé ici
-        learning_rate=0,   # pas utilisé
-        discount_factor=0, # pas utilisé
-        lookahead_steps=0, # pas utilisé
+        nb_episodes=args.nb_episodes,
+        learning_rate=args.learning_rate,
+        discount_factor=args.discount_factor,
+        lookahead_steps=args.lookahead_steps,
         reward_method=RewardMethod[args.reward_method.upper()],
-        reward_angle=None
+        reward_angle=args.progression_angle
     )
+
     main(config)
