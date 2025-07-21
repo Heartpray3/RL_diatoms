@@ -35,7 +35,8 @@ class DiatomEnv(gymnasium.Env):
                  nb_steps_per_ep,
                  a: float,
                  dt: float,
-                 angle = None):
+                 angle = None,
+                 n_step_sim=50):
         self.input_parm = input_file_path
         self.output_param = output_dir
         self.reward_method = reward_method
@@ -50,6 +51,7 @@ class DiatomEnv(gymnasium.Env):
         self.state = ColonyState(tuple())
         self._step = 0
         self.update_file = ''
+        self.n_step_sim = n_step_sim
         self.setup(input_file_path, output_dir, delete_folder=True)
         self.initial_cm = None
         self.update_file = ''
@@ -237,7 +239,7 @@ class DiatomEnv(gymnasium.Env):
         """
 
         const_path = os.path.join(self.sim_dir, self.const_filename)
-        expression = self.fact_blobs * self.a / (2 * self.dt) * direction
+        expression = self.fact_blobs * self.a / (2 * self.dt * self.n_step_sim) * direction
         sixzeros = ['0'] * 6
         constraints = {}
         last_pos = list(map(lambda x: self.fact_blobs * x * self.a / 2, self.state.gaps))
@@ -311,29 +313,6 @@ class DiatomEnv(gymnasium.Env):
                 f.write(line + "\n")
         return const_path
 
-    # def _safe_eval(self, expr):
-    #     """Convert numerical string or keep expressions like '1.1*(0)' or '3*t'."""
-    #     try:
-    #         # Try evaluating basic constants
-    #         return eval(expr, {"__builtins__": None}, {"t": self.dt})  # dummy eval to allow 't'
-    #     except:
-    #         return expr
-
-    # def write_constraints_file(self, data, path):
-    #     with open(path, "w") as f:
-    #         f.write(f"{data['n_rods']}\n")
-    #         f.write(f"{data['n_constraints']}\n")
-    #
-    #         for key, constraint in data["constraints"].items():
-    #             i, j = key[0], key[1]
-    #             raw_expr = constraint["raw_expr"]
-    #
-    #             if len(raw_expr) != 18:
-    #                 raise ValueError(f"raw_expr for constraint {key} does not have 20 elements")
-    #
-    #             line = f"{i} {j} " + " ".join(raw_expr)
-    #             f.write(line + "\n")
-
     def reset(self, *, seed = None, options = None):
             if seed:
                 random.seed(seed)
@@ -406,7 +385,7 @@ class DiatomEnv(gymnasium.Env):
 
         updates = {
             'dt': [str(self.dt)],
-            'n_steps': [str(1)],
+            'n_steps': [str(self.n_step_sim)],
             'output_name': ['run'],
             'articulated': [filename_list_vertex, filename_clones, self.const_filename]
         }
