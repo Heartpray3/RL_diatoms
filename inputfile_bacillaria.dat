@@ -14,8 +14,8 @@ dt                                       0.0025
 n_steps                                  1
 n_save                                   1
 update_PC                                1
-solver_tolerance                         1e-5
-nonlinear_solver_tolerance               1e-5
+solver_tolerance                         1e-8
+nonlinear_solver_tolerance               1e-8
 
 # Set fluid viscosity (eta), gravity (g) and blob radius
 eta                                      1e-03 
