@@ -17,7 +17,7 @@ if __name__ == '__main__':
                 new_config = Config(
                     input_file_path=base_config.input_file_path,
                     output_directory=path_output,
-                    nb_blobs=2,
+                    nb_blobs=blobs,
                     nb_rods=3,
                     dt=base_config.dt,
                     nb_step=nb_steps,
