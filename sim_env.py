@@ -109,7 +109,7 @@ class DiatomEnv(gymnasium.Env):
         if action not in valid_actions:
             # Action invalide : grosse pénalité + épisode terminé
             reward = -100.0
-            done = True
+            done = False
             obs = self._state_to_obs(self.state)
             return obs, reward, done, False, {"invalid_action": True}
 
