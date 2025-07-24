@@ -386,6 +386,7 @@ class DiatomEnv(gymnasium.Env):
         updates = {
             'dt': [str(self.dt)],
             'n_steps': [str(self.n_step_sim)],
+            'n_save': [str(self.n_step_sim)],
             'output_name': ['run'],
             'articulated': [filename_list_vertex, filename_clones, self.const_filename]
         }
