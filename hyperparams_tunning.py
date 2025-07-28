@@ -11,7 +11,7 @@ if __name__ == '__main__':
     config_params = [(200, 1000), (40, 5000)]
     for params in config_params:
         for j, blobs in enumerate([2, 5, 10]):
-            for method, angle in [(RewardMethod.CIRCULAR_ZONES, 0)]: # (RewardMethod.FORWARD_PROGRESS, 90), (RewardMethod.FORWARD_PROGRESS, 0),
+            for method, angle in [(RewardMethod.FORWARD_PROGRESS, 90), (RewardMethod.FORWARD_PROGRESS, 0), (RewardMethod.CIRCULAR_ZONES, 0)]:
                 nb_steps, nb_epoch = params
                 path_output = os.path.join(base_config.output_directory, f"ppo_3r_{blobs}b_ep_{nb_epoch}_step_{nb_steps}_meth_{method.value}_ang_{angle}")
                 new_config = Config(
