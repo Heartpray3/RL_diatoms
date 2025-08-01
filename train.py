@@ -12,10 +12,12 @@ Code d'apprentissage par renforcement & simulation (Q-learning)
 
 import argparse
 import os
+import random
 
 from mpmath.libmp.libmpf import reciprocal_rnd
 from scipy.stats import reciprocal
 from stable_baselines3 import PPO
+
 from sim_env import DiatomEnv, ColonyState, Action
 from utils import Config, abs_path, RewardMethod
 
@@ -32,8 +34,8 @@ def main(config):
         dt=config.dt,
         angle=config.reward_angle
     )
-
-    model = PPO("MlpPolicy", env, verbose=1)
+    random.seed(42)
+    model = PPO("MlpPolicy", env, n_epochs=10, n_steps=config.nb_step, verbose=1)
 
     # Entraîner
     model.learn(total_timesteps=config.nb_step * config.nb_episodes)

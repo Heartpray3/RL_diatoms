@@ -96,6 +96,9 @@ class DiatomEnv(gymnasium.Env):
     def _state_to_obs(self, state: ColonyState) -> np.ndarray:
         return np.array(state.gaps, dtype=np.int32)
 
+    def _obs_to_state(self, obs: np.ndarray) -> ColonyState:
+        return ColonyState(gaps=tuple(obs.tolist()))
+
     def step(self, action_index: int):
         """
             Exécute une étape avec une action donnée.
