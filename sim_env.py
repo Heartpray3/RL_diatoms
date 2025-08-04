@@ -325,7 +325,7 @@ class DiatomEnv(gymnasium.Env):
             self.setup(self.input_parm, self.output_param, delete_folder=False)
             self.initial_cm = None
             self.episode += 1
-            return self._state_to_obs(self.state)
+            return self._state_to_obs(self.state), {}
 
     def setup(self, input_file_path, output_dir, delete_folder=True):
         X_coef = 7.4209799e-02
