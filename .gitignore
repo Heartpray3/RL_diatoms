@@ -1,16 +1,17 @@
 # Ignore everything by default
 *
 
-!*
+# Allow files in the root directory (e.g., main.py, config.yaml)
+!*.py
+!*.yaml
+!*.md
 
-# Except these folders (unignore)
+# Don't ignore these specific subdirectories and their contents
 !ppo/
-!common/
-!q_learning/
-
-# And unignore all files inside them (important!)
 !ppo/**
-!common/**
-!q_learning/**
 
-*/
+!common/
+!common/**
+
+!q_learning/
+!q_learning/**
