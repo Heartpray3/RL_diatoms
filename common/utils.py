@@ -39,7 +39,7 @@ def load_config(path="config.yaml") -> Config:
     return Config(**raw)
 
 def abs_path(directory: str) -> str:
-    script_dir = Path(__file__).parent.resolve()
+    script_dir = Path(os.getcwd())
     abs_dir = (script_dir / directory).resolve()
     return str(abs_dir)
 

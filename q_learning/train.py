@@ -33,7 +33,7 @@ def q_learning(env: DiatomEnv,
     Q = defaultdict(float)
 
     for ep in range(episodes):
-        state = env.reset()
+        state, _ = env.reset()
         state = env._obs_to_state(state)
         total_reward = 0
 
