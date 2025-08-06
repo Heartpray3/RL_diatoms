@@ -1,7 +1,7 @@
 import argparse
 import pickle
-from sim_env import DiatomEnv, Action
-from utils import load_config
+from common.sim_env import DiatomEnv
+from common.utils import load_config
 import random
 
 

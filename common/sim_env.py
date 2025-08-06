@@ -11,7 +11,7 @@ from typing import List
 import gymnasium
 from gymnasium import spaces
 
-from utils import get_sim_folder, RewardMethod, quaternion_rotation_matrix
+from .utils import get_sim_folder, RewardMethod, quaternion_rotation_matrix
 import numpy as np
 
 
@@ -95,6 +95,9 @@ class DiatomEnv(gymnasium.Env):
 
     def _state_to_obs(self, state: ColonyState) -> np.ndarray:
         return np.array(state.gaps, dtype=np.int32)
+
+    def _obs_to_state(self, obs: np.ndarray) -> ColonyState:
+        return ColonyState(gaps=tuple(obs.tolist()))
 
     def step(self, action_index: int):
         """
@@ -322,7 +325,7 @@ class DiatomEnv(gymnasium.Env):
             self.setup(self.input_parm, self.output_param, delete_folder=False)
             self.initial_cm = None
             self.episode += 1
-            return self._state_to_obs(self.state)
+            return self._state_to_obs(self.state), {}
 
     def setup(self, input_file_path, output_dir, delete_folder=True):
         X_coef = 7.4209799e-02

@@ -1,6 +1,5 @@
-import argparse
 import os
-from utils import load_config, Config, RewardMethod
+from common.utils import load_config, Config, RewardMethod
 from pathlib import Path
 import subprocess
 
@@ -8,17 +7,18 @@ if __name__ == '__main__':
 
     base_config = load_config()
     configs = []
-    config_params = [(200, 1000), (40, 5000)]
+    config_params = [(200, 2000)]
+    nb_rods = 10
     for params in config_params:
         for j, blobs in enumerate([2, 5, 10]):
-            for method, angle in [(RewardMethod.CIRCULAR_ZONES, 0)]: # (RewardMethod.FORWARD_PROGRESS, 90), (RewardMethod.FORWARD_PROGRESS, 0),
+            for method, angle in [(RewardMethod.FORWARD_PROGRESS, 90)]:
                 nb_steps, nb_epoch = params
-                path_output = os.path.join(base_config.output_directory, f"ppo_3r_{blobs}b_ep_{nb_epoch}_step_{nb_steps}_meth_{method.value}_ang_{angle}")
+                path_output = os.path.join(base_config.output_directory, f"ppo_{nb_rods}r_{blobs}b_ep_{nb_epoch}_step_{nb_steps}_meth_{method.value}_ang_{angle}")
                 new_config = Config(
                     input_file_path=base_config.input_file_path,
                     output_directory=path_output,
                     nb_blobs=blobs,
-                    nb_rods=3,
+                    nb_rods=nb_rods,
                     dt=base_config.dt,
                     nb_step=nb_steps,
                     nb_episodes=nb_epoch,

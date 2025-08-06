@@ -1,8 +1,17 @@
-# Ignore everything
+# Ignore everything by default
 *
 
-# Do not ignore files in the current directory
-!*
+# Allow files in the root directory (e.g., main.py, config.yaml)
+!*.py
+!*.yaml
+!*.md
 
-# Ignore all subdirectories
-*/
+# Don't ignore these specific subdirectories and their contents
+!ppo/
+!ppo/**
+
+!common/
+!common/**
+
+!q_learning/
+!q_learning/**

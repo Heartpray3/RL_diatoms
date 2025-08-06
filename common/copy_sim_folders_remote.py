@@ -1,21 +1,26 @@
 import paramiko
 from scp import SCPClient
 import os
+from sim_env import RewardMethod
 
 # Remote base path
 remote_base_path = "/moogwai/usr/ely/RigidMultiblobsWall-master-JLD/multi_bodies/examples/RL_diatoms"
 remote_folders = []
-tested_gamma = [0.4, 0.5, 0.6]
-tested_params = [(200, 1000)]
+nb_blobs = [2, 5, 10]
+tested_params = [(200, 1000), (40, 5000)]
+
 # Build remote folder paths
-for step, episodes in tested_params:
-    for gamma in tested_gamma:
-        folder_name = f"3r_2b_gamma_{gamma}_ep_{episodes}_step_{step}_z_mvt"
-        full_path = os.path.join(remote_base_path, folder_name)
-        remote_folders.append(full_path)
+for nb_steps, nb_epoch in tested_params:
+    for blobs in nb_blobs:
+        for method, angle in [(RewardMethod.FORWARD_PROGRESS, 90), (RewardMethod.FORWARD_PROGRESS, 0),
+                                      (RewardMethod.CIRCULAR_ZONES, 0)]:
+
+            folder_name = f"ppo_3r_{blobs}b_ep_{nb_epoch}_step_{nb_steps}_meth_{method.value}_ang_{angle}"
+            full_path = os.path.join(remote_base_path, folder_name)
+            remote_folders.append(full_path)
 
 # Local path to save the folders
-local_base_path = './training_results'
+local_base_path = '../training_results'
 
 # SSH credentials
 host = 'gibi.polytechnique.fr'

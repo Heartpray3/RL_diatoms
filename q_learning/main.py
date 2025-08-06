@@ -1,6 +1,6 @@
 import argparse
-from utils import load_config
-from train import main
+from common.utils import load_config
+from q_learning.train import main
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

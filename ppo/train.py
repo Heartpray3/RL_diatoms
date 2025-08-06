@@ -12,12 +12,12 @@ Code d'apprentissage par renforcement & simulation (Q-learning)
 
 import argparse
 import os
+import random
 
-from mpmath.libmp.libmpf import reciprocal_rnd
-from scipy.stats import reciprocal
 from stable_baselines3 import PPO
-from sim_env import DiatomEnv, ColonyState, Action
-from utils import Config, abs_path, RewardMethod
+
+from common.sim_env import DiatomEnv
+from common.utils import Config, abs_path, RewardMethod
 
 def main(config):
     # Créer l'env Gym
@@ -32,8 +32,8 @@ def main(config):
         dt=config.dt,
         angle=config.reward_angle
     )
-
-    model = PPO("MlpPolicy", env, verbose=1)
+    random.seed(42)
+    model = PPO("MlpPolicy", env, n_epochs=10, n_steps=config.nb_step, verbose=1)
 
     # Entraîner
     model.learn(total_timesteps=config.nb_step * config.nb_episodes)
@@ -52,8 +52,6 @@ if __name__ == "__main__":
     parser.add_argument("--nb_step", type=int, default=100)
     parser.add_argument("--nb_episodes", type=int, default=1000)
     parser.add_argument("--learning_rate", type=float, default=0.1)
-    parser.add_argument("--discount_factor", type=float, default=0.95)
-    parser.add_argument("--lookahead_steps", type=int, default=1)
     parser.add_argument("--reward_method", type=str, default="VELOCITY")
     parser.add_argument("--progression_angle", type=float, default=None)
 
@@ -68,8 +66,7 @@ if __name__ == "__main__":
         nb_step=args.nb_step,
         nb_episodes=args.nb_episodes,
         learning_rate=args.learning_rate,
-        discount_factor=args.discount_factor,
-        lookahead_steps=args.lookahead_steps,
+        discount_factor=0,
         reward_method=RewardMethod[args.reward_method.upper()],
         reward_angle=args.progression_angle
     )
