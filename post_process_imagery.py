@@ -1,35 +1,54 @@
-# noinspection PyUnresolvedReferences
-import matplotlib.pyplot as plt; plt.close('all')
-from sim_env import DiatomEnv
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import load_config, get_sim_folder, quaternion_rotation_matrix
+from sim_env import DiatomEnv
+from utils import load_config, quaternion_rotation_matrix
+from matplotlib.backends.backend_pdf import PdfPages
 
-# === PARAMÈTRES ===
-run_single_file = True         # ← active la PARTIE 1
-run_multiple_episodes = False  # ← active la PARTIE 2
-trace_every_n = 100           # pour la PARTIE 2
+# === Chemins vers les fichiers .config à traiter ===
+config_files = [
+    "./ppo/ppo_3r_5b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_90/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_2309_update_bacillaria_5_blobs_3_rods.config",
+    "./ppo/ppo_3r_5b_ep_5000_step_40_meth_CIRCULAR_ZONES_ang_0/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_1632_update_bacillaria_5_blobs_3_rods.config",
+    "./ppo/ppo_3r_2b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_0/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_478_update_bacillaria_2_blobs_3_rods.config",
+    "./ppo/ppo_3r_10b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_90/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_2203_update_bacillaria_10_blobs_3_rods.config",
+    "./ppo/ppo_3r_10b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_0/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_440_update_bacillaria_10_blobs_3_rods.config",
+    "./ppo/ppo_3r_10b_ep_5000_step_40_meth_CIRCULAR_ZONES_ang_0/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_1554_update_bacillaria_10_blobs_3_rods.config",
+    "./ppo/ppo_3r_5b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_90/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_463_update_bacillaria_5_blobs_3_rods.config",
+    "./ppo/ppo_3r_2b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_90/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_2384_update_bacillaria_2_blobs_3_rods.config",
+    "./ppo/ppo_3r_5b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_0/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_2311_update_bacillaria_5_blobs_3_rods.config",
+    "./ppo/ppo_3r_5b_ep_1000_step_200_meth_CIRCULAR_ZONES_ang_0/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_327_update_bacillaria_5_blobs_3_rods.config",
+    "./ppo/ppo_3r_5b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_0/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_463_update_bacillaria_5_blobs_3_rods.config",
+    "./ppo/ppo_3r_2b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_90/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_478_update_bacillaria_2_blobs_3_rods.config",
+    "./ppo/ppo_3r_2b_ep_1000_step_200_meth_CIRCULAR_ZONES_ang_0/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_336_update_bacillaria_2_blobs_3_rods.config",
+    "./ppo/ppo_3r_2b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_0/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_2386_update_bacillaria_2_blobs_3_rods.config",
+    "./ppo/ppo_3r_10b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_90/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_439_update_bacillaria_10_blobs_3_rods.config",
+    "./ppo/ppo_3r_10b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_0/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_2202_update_bacillaria_10_blobs_3_rods.config",
+    "./ppo/ppo_3r_2b_ep_5000_step_40_meth_CIRCULAR_ZONES_ang_0/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_1680_update_bacillaria_2_blobs_3_rods.config",
+    "./ppo/ppo_3r_10b_ep_1000_step_200_meth_CIRCULAR_ZONES_ang_0/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_311_update_bacillaria_10_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_5b_ep_1000_step_200_meth_CIRCULAR_ZONES_ang_0/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_348_update_bacillaria_5_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_5b_ep_5000_step_40_meth_CIRCULAR_ZONES_ang_0/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_1771_update_bacillaria_5_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_5b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_90/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_347_update_bacillaria_5_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_2b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_90/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_2692_update_bacillaria_2_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_10b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_90/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_1567_update_bacillaria_10_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_5b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_90/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_1771_update_bacillaria_5_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_10b_ep_5000_step_40_meth_CIRCULAR_ZONES_ang_0/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_1567_update_bacillaria_10_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_10b_ep_1000_step_200_meth_CIRCULAR_ZONES_ang_0/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_307_update_bacillaria_10_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_5b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_0/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_347_update_bacillaria_5_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_5b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_0/5_Blobs/3_Rods/bacillaria_5_blobs_3_rods/epoch_1771_update_bacillaria_5_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_2b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_0/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_528_update_bacillaria_2_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_2b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_0/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_2691_update_bacillaria_2_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_10b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_90/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_307_update_bacillaria_10_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_2b_ep_1000_step_200_meth_CIRCULAR_ZONES_ang_0/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_528_update_bacillaria_2_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_2b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_90/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_528_update_bacillaria_2_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_10b_ep_5000_step_40_meth_FORWARD_PROGRESS_ang_0/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_1565_update_bacillaria_10_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_2b_ep_5000_step_40_meth_CIRCULAR_ZONES_ang_0/2_Blobs/3_Rods/bacillaria_2_blobs_3_rods/epoch_2693_update_bacillaria_2_blobs_3_rods.config",
+    "./qlearning/qlearning_3r_10b_ep_1000_step_200_meth_FORWARD_PROGRESS_ang_0/10_Blobs/3_Rods/bacillaria_10_blobs_3_rods/epoch_307_update_bacillaria_10_blobs_3_rods.config"
+]
 
-# === CONFIGURATION ===
-config = load_config()
-Nrods = config.nb_rods
-dt = config.dt
 a = 0.183228708092682
-working_dir = config.output_directory
-root_name = 'bacillaria_'
-sim_dir = get_sim_folder(working_dir, config.nb_rods, config.nb_blobs)
-sim_path = os.path.join(working_dir, sim_dir)
-L = 2 * a + (Nrods - 1) * 0.81 * a
+dt = 0.005
+theta = np.linspace(0, 2 * np.pi, 100)
 
-# === CHARGEMENT VERTEX ===
-vertex_file = os.path.join(working_dir, f"{config.nb_blobs}_Blobs", f"{root_name}{config.nb_blobs}_blobs.vertex")
-with open(vertex_file, 'r') as f:
-    lines = f.read().split()
-    nb_blobs = int(lines[0])
-    vertex = np.array(lines[1:], dtype=float).reshape((-1, 3))
-
-# === FONCTION DE LECTURE DES POSES ===
 def load_cm_positions(filepath, Nrods):
     with open(filepath, 'r') as f:
         lines = [list(map(float, l.strip().split())) for l in f if len(l.strip().split()) == 7]
@@ -38,10 +57,8 @@ def load_cm_positions(filepath, Nrods):
         print(f"⚠️ {filepath} mal formé.")
         return None
     n_steps = len(data) // Nrods
-    positions = data.reshape((n_steps, Nrods, 7))
-    return positions
+    return data.reshape((n_steps, Nrods, 7))
 
-# === CALCUL POSITIONS BLOBS ===
 def compute_all_blob_positions(rods_positions, vertex):
     n_steps, Nrods, _ = rods_positions.shape
     blobs = vertex.shape[0]
@@ -52,101 +69,85 @@ def compute_all_blob_positions(rods_positions, vertex):
             x, y, z, qx, qy, qz, qw = rods_positions[t, r]
             R = quaternion_rotation_matrix(qx, qy, qz, qw)
             center = np.array([x, y, z])
-            rotated_blobs = (R @ vertex.T).T + center
-            pos_all_blobs[t, idx:idx+blobs, :] = rotated_blobs
+            rotated = (R @ vertex.T).T + center
+            pos_all_blobs[t, idx:idx+blobs, :] = rotated
             idx += blobs
     return pos_all_blobs
 
+for filepath in config_files:
+    print(f"▶️ Traitement : {filepath}")
 
-# === PARTIE 1 ===
-if run_single_file:
-    print("→ Traitement du fichier step_0")
-    file_name = f"step_999_update_{root_name}{config.nb_blobs}_blobs_{config.nb_rods}_rods.config"
-    filepath = os.path.join(sim_path, file_name)
+    identifier = filepath.split("/")[2]
+    root = os.path.splitext(os.path.basename(filepath))[0]
+    parts = root.split("_")
+    nb_blobs = int(parts[4])
+    nb_rods = int(parts[6])
 
-    rods_positions = load_cm_positions(filepath, Nrods)
-    if rods_positions is not None:
-        cm_positions = rods_positions[:, :, 0:3].mean(axis=1)
-        cm_velocity = np.diff(cm_positions, axis=0) / dt
-        pos_all_blobs = compute_all_blob_positions(rods_positions, vertex)
+    # Vertex file = deux niveaux au-dessus
+    vertex_dir = os.path.dirname(os.path.dirname(os.path.dirname(filepath)))
+    vertex_file = os.path.join(vertex_dir, f"bacillaria_{nb_blobs}_blobs.vertex")
+    if not os.path.exists(vertex_file):
+        print(f"❌ Pas de vertex file trouvé pour {filepath}")
+        continue
 
-        n_steps = pos_all_blobs.shape[0]
-        theta = np.linspace(0, 2 * np.pi, 100)
+    with open(vertex_file, 'r') as f:
+        lines = f.read().split()
+        nb_blobs_from_file = int(lines[0])
+        vertex = np.array(lines[1:], dtype=float).reshape((-1, 3))
 
-        xmin = np.min(pos_all_blobs[:, :, 0])
-        xmax = np.max(pos_all_blobs[:, :, 0])
-        zmin = np.min(pos_all_blobs[:, :, 2])
-        zmax = np.max(pos_all_blobs[:, :, 2])
-        maxi = max(abs(xmin), xmax, abs(zmin), zmax)
-        xmin, xmax = -maxi, maxi
-        zmin, zmax = -maxi, maxi
+    rods_positions = load_cm_positions(filepath, nb_rods)
+    if rods_positions is None:
+        continue
 
+    cm_positions = rods_positions[:, :, 0:3].mean(axis=1)
+    pos_all_blobs = compute_all_blob_positions(rods_positions, vertex)
+    n_steps = pos_all_blobs.shape[0]
+
+    # Centrage
+    xmin, xmax = np.min(pos_all_blobs[:, :, 0]), np.max(pos_all_blobs[:, :, 0])
+    zmin, zmax = np.min(pos_all_blobs[:, :, 2]), np.max(pos_all_blobs[:, :, 2])
+    maxi = max(abs(xmin), xmax, abs(zmin), zmax)
+    L = 2 * a + (nb_rods - 1) * 0.81 * a
+    xmin, xmax = -maxi, maxi
+    zmin, zmax = -maxi, maxi
+
+    # Output
+    outdir = os.path.join("analyses", identifier)
+    os.makedirs(outdir, exist_ok=True)
+
+    pdf_path = os.path.join(outdir, "all_steps.pdf")
+    with PdfPages(pdf_path) as pdf:
         for i in range(n_steps):
-            plt.figure(figsize=(12.8, 9.6))
+            fig = plt.figure(figsize=(12.8, 9.6))
             plt.xlabel('x/L')
             plt.ylabel('z/L')
             plt.xlim(((xmin - 3 * a) / L, (xmax + 3 * a) / L))
             plt.ylim(((zmin - 3 * a) / L, (zmax + 3 * a) / L))
 
-            for j in range(nb_blobs * Nrods):
+            for j in range(nb_blobs_from_file * nb_rods):
                 x = a * np.cos(theta) / L + pos_all_blobs[i, j, 0] / L
                 z = a * np.sin(theta) / L + pos_all_blobs[i, j, 2] / L
                 plt.plot(x, z, '#d2aa0f', zorder=-2)
                 plt.fill_between(x, z, facecolor='#d2aa0f')
 
-            # Centre de masse courant (point bleu)
-            plt.plot(cm_positions[i, 0] / L, cm_positions[i, 2] / L, 'bo', markersize=8, label='CM actuel')
-            # Trace historique du CM (ligne rouge)
-            plt.plot(cm_positions[0:i + 1, 0] / L, cm_positions[0:i + 1, 2] / L, 'r-', lw=2, label='Trajectoire CM')
+            plt.plot(cm_positions[i, 0] / L, cm_positions[i, 2] / L, 'bo', label='CM actuel')
+            plt.plot(cm_positions[:i + 1, 0] / L, cm_positions[:i + 1, 2] / L, 'r-', lw=2, label='Trajectoire CM')
             state = DiatomEnv.infer_colony_state_from_positions(rods_positions[i, :, 0:3], rods_positions[i, :, 3:], a)
             plt.title(f"Colony State {state}")
             plt.legend()
-            # plt.show()
 
-            plt.savefig(f'N_{Nrods}_Step_{i}.pdf')
-            plt.close()
-
-# === PARTIE 2 : TOUS LES ÉPISODES ===
-path_to_save = os.path.join("./", "images", os.path.basename(working_dir))
-os.makedirs(path_to_save, exist_ok=True)
-if run_multiple_episodes:
-    print("→ Traitement de tous les fichiers .config")
-    all_files = sorted([
-        f for f in os.listdir(sim_path)
-        if f.startswith("step_") and f.endswith(".config")
-    ])
-    episode_velocities = []
-    for idx, filename in enumerate(all_files):
-        path = os.path.join(sim_path, filename)
-        rods_positions = load_cm_positions(path, Nrods)
-        if rods_positions is None:
-            continue
-        cm_positions = rods_positions[:, :, 0:3].mean(axis=1)
-        cm_velocities = np.diff(cm_positions, axis=0) / dt
-        cm_velocities /= L
-        vel_norms = np.linalg.norm(cm_velocities, axis=1)
-        mean_vel = np.mean(vel_norms)
-        episode_velocities.append(mean_vel)
-
-        if idx % trace_every_n == 0:
-            plt.figure(figsize=(8, 6))
-            plt.plot(cm_positions[:, 0] / L, cm_positions[:, 2] / L, label=f'Épisode {idx}')
-            # plt.plot(cm_positions[:, 0], cm_positions[:, 2], label=f'Épisode {idx}')
-            plt.xlabel('x/L')
-            plt.ylabel('z/L')
-            plt.title(f'Trajectoire - épisode {idx}')
-            plt.axis('equal')
-            plt.grid(True)
-            plt.savefig(os.path.join(path_to_save, f"traj_cm_episode_{idx}.png"), dpi=300)
-            plt.close()
-
-    # Courbe vitesse moyenne
-    if episode_velocities:
-        plt.figure(figsize=(8, 5))
-        plt.plot(episode_velocities, '-o')
-        plt.xlabel('Épisode')
-        plt.ylabel('Vitesse moyenne CM / L')
-        plt.title('Évolution de la vitesse moyenne')
-        plt.grid(True)
-        plt.savefig(os.path.join(path_to_save, "vitesse_moyenne_par_episode.png"), dpi=300)
-        plt.show()
+            pdf.savefig(fig)
+            plt.close(fig)
+    os.makedirs(outdir, exist_ok=True)
+    plt.figure(figsize=(10, 8))
+    plt.plot(cm_positions[:, 0] / L, cm_positions[:, 2] / L, 'r-', lw=2)
+    plt.plot(cm_positions[0, 0] / L, cm_positions[0, 2] / L, 'go', label='Start', markersize=8)
+    plt.plot(cm_positions[-1, 0] / L, cm_positions[-1, 2] / L, 'bo', label='End', markersize=8)
+    plt.xlabel('x / L')
+    plt.ylabel('z / L')
+    plt.title(f"Trajectory of CM — {root}")
+    plt.grid(True)
+    plt.axis('equal')
+    plt.legend()
+    plt.savefig(os.path.join(outdir, "trajectory.png"), dpi=200)
+    plt.close()
