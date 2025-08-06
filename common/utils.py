@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 9 13:00:01 2025
+
+@author: Ely Cheikh Abass
+
+Utilitaires et classes de configuration pour le projet d'apprentissage
+par renforcement sur les diatomées. Inclut les méthodes de récompense,
+la gestion de configuration et les fonctions utilitaires.
+"""
+
 import yaml
 from dataclasses import dataclass
 from pathlib import Path

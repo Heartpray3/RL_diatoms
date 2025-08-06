@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 9 13:00:01 2025
+
+@author: Ely Cheikh Abass
+
+Environnement de simulation pour l'apprentissage par renforcement.
+Implémente l'interface Gymnasium pour la simulation de colonies de diatomées
+Bacillaria avec différents modes de récompense et méthodes d'action.
+"""
+
 import random
 import shutil
 import sys

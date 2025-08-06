@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 9 13:00:01 2025
+
+@author: Ely Cheikh Abass
+
+Module de post-traitement et visualisation des résultats de simulation.
+Génère des graphiques et analyses des trajectoires des colonies de diatomées
+à partir des données de simulation.
+"""
+
 # noinspection PyUnresolvedReferences
 import matplotlib.pyplot as plt; plt.close('all')
 from sim_env import DiatomEnv

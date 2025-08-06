@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 9 13:00:01 2025
+
+@author: Ely Cheikh Abass
+
+Point d'entrée principal pour l'exécution de l'algorithme Q-learning.
+Lance l'entraînement avec les paramètres spécifiés dans la configuration.
+"""
+
 import argparse
 from common.utils import load_config
 from q_learning.train import main

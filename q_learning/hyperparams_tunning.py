@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 9 13:00:01 2025
+
+@author: Ely Cheikh Abass
+
+Module d'optimisation des hyperparamètres pour l'algorithme Q-learning.
+Permet de tester différentes configurations de paramètres pour optimiser
+les performances d'apprentissage sur la simulation de diatomées.
+"""
+
 import os
 from common.utils import load_config, Config, RewardMethod
 from pathlib import Path

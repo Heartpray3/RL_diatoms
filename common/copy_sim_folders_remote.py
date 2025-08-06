@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 9 13:00:01 2025
+
+@author: Ely Cheikh Abass
+
+Script utilitaire pour copier les dossiers de simulation vers un serveur distant.
+Facilite la gestion des résultats de simulation sur des systèmes distribués.
+"""
+
 import paramiko
 from scp import SCPClient
 import os
