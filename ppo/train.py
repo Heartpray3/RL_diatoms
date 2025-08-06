@@ -5,9 +5,11 @@ Created on Thu Jun 9 13:00:01 2025
 
 @author: Ely Cheikh Abass
 
-La structure de base est inspire du code de Julien/Stefanie
+La structure de base est inspirée du code de Julien/Stefanie
 
-Code d'apprentissage par renforcement & simulation (Q-learning)
+Code d'apprentissage par renforcement & simulation (PPO)
+Module d'entraînement pour l'algorithme PPO (Proximal Policy Optimization)
+appliqué à la simulation de colonies de diatomées Bacillaria.
 """
 
 import argparse

@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 9 13:00:01 2025
+
+@author: Ely Cheikh Abass
+
+Module de validation pour les politiques Q-learning apprises.
+Permet d'évaluer les performances des politiques entraînées sur
+la simulation de colonies de diatomées Bacillaria.
+"""
+
 import argparse
 import pickle
 from common.sim_env import DiatomEnv
